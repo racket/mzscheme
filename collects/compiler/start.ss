@@ -317,7 +317,7 @@
 	  (version))
 
   (define-values (mode source-files prefix)
-    (parse-options (namespace-variable-binding 'argv)))
+    (parse-options (current-command-line-arguments)))
 
   (when (auto-dest-dir)
     (unless (memq mode '(zo compile))
