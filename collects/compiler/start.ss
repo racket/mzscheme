@@ -1,3 +1,11 @@
+;; Starts up the compiler according to command-line flags.
+;; (c) 1997-8 PLT, Rice University
+
+;; Scheme->C compilation is the only mode really handled
+;;  by the code in this collection. Other modes are handled
+;;  by other collections, such as MzLib and dynext.
+;; If you are interested Scheme->C part of mzc, look in
+;;  driver.ss, which is the `main' file for the compiler.
 
 ; (require-library "traceld.ss")
 
