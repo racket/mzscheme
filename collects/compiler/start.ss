@@ -41,6 +41,7 @@
   (define exe-output (make-parameter #f))
   (define exe-embedded-flags (make-parameter '("-mvq-")))
   (define exe-embedded-libraries (make-parameter null))
+  (define exe-aux (make-parameter null))
 
   (define module-mode (make-parameter #f))
 
@@ -202,6 +203,17 @@
 	 ("Show C linker flags")]]
        [help-labels
 	"--------------------- executable configuration flags ------------------------"]
+       [once-each
+	[("--ico")
+	 ,(lambda (f i) (exe-aux
+			 (cons (cons 'ico i)
+			       (exe-aux))))
+	 ("Windows icon for --[gui-]exe executable" ".ico-file")]
+	[("--icns")
+	 ,(lambda (f i) (exe-aux
+			 (cons (cons 'icns i)
+			       (exe-aux))))
+	 ("Mac OS X icon for --[gui-]exe executable" ".icns-file")]]
        [multi
 	[("++lib")
 	 ,(lambda (f l c) (exe-embedded-libraries
@@ -399,7 +411,8 @@
       (let ([flags (exe-embedded-flags)])
 	(if (eq? mode 'gui-exe) 
 	    (cons "-Z" flags)
-	    flags)))
+	    flags))
+      (exe-aux))
      (printf " [output to \"~a\"]~n" (exe-output))]
     [(plt)
      (for-each (lambda (fd)
