@@ -11,6 +11,8 @@
 (require-library "functio.ss")
 (require-library "file.ss" "dynext")
 
+(define dest-dir (make-parameter #f))
+
 ; Returns (values mode files prefixes)
 ;  where mode is 'compile, 'link, or 'zo
 (define (parse-options argv)
@@ -18,7 +20,7 @@
    "mzc"
    argv
    `([once-any
-      [("-e" "--extention")
+      [("-e" "--extension")
        ,(lambda (f) 'compile)
        (,(format "Output ~a file(s) from Scheme source(s) (default)" (append-extension-suffix "")))]
       [("-c" "--c-source")
@@ -31,42 +33,39 @@
 		 (append-constant-pool-suffix "")))]
       [("-l" "--link-extension")
        ,(lambda (f) 'link)
-       (,(format "Link multiple ~a and ~a files into a ~a file (using ~a files)"
+       (,(format "Link multiple ~a and ~a files into a ~a file"
 		 (append-object-suffix "")
 		 (append-constant-pool-suffix "")
-		 (append-extension-suffix "")
-		 (append-constant-pool-suffix "")))]
+		 (append-extension-suffix "")))]
+      [("-g" "--link-glue")
+       ,(lambda (f) 'glue)
+       (,(format "Create the ~a glue for --link-extension, but do not link"
+		 (append-object-suffix "")))]
       [("-z" "--zo")
        ,(lambda (f) 'zo)
        (,(format "Output ~a file(s) from Scheme source(s)" (append-zo-suffix "")))]
       [("--collection-extension")
        ,(lambda (f) 'collection-extension)
-       ("Compile specificed collection to extension")]
+       ("Compile specified collection to extension")]
       [("--collection-zos")
        ,(lambda (f) 'collection-zos)
        (,(format "Compile specified collection to ~a files" (append-zo-suffix "")))]]
-     [once-any
-      [("-M" "--monoliths") 
-       ,(lambda (f v) 
-	  (unless (string->number v)
-	      (error 'mzc "monolith argument must be a number"))
-	  (let ([num (string->number v)])
-	    (unless (and (integer? num)
-			 (positive? num)
-			 (<= num max-monoliths))
-		    (error 'mzc:compile "monoliths must be a number between 1 and ~a"
-			   max-monoliths))
-	    (compiler:option:monoliths num)))
-       ("Use n monolithic vehicles during compilation" "n")]
-      [("--va")
-       ,(lambda (f) (compiler:option:vehicles 'vehicles:automatic))
-       ("Try to optimize function vehicle selection during compilation")]
-      [("--vf")
-       ,(lambda (f) (compiler:option:vehicles 'vehicles:function))
-       ("Use per-function vehicles during compilation")]
-      [("--vu")
-       ,(lambda (f) (compiler:option:vehicles 'vehicles:unit))
-       ("Use per-unit vehicles during compilation")]]
+     [once-each
+      [("-p" "--prefix") 
+       ,(lambda (f v) v)
+       ("Add elaboration-time prefix file for -e/-c/-o/-z (allowed multiple times)" "file")]
+      [("-d" "--destination") 
+       ,(lambda (f d)
+	  (unless (directory-exists? d)
+		  (error 'mzc "the destination directory does not exist: ~s" d))
+	  (dest-dir d))
+       ("Output file(s) to <dir>" "dir")]
+      [("-v") 
+       ,(lambda (f) (compiler:option:verbose #t))
+       ("Verbose mode")]
+      [("--cc") 
+       ,(lambda (f v) (current-extension-compiler v))
+       ("Use <compiler> as C compiler" "compiler")]]
      [multi
       [("--ccf-clear") 
        ,(lambda (f) (current-extension-compiler-flags null))
@@ -78,17 +77,40 @@
       [("--ccf") 
        ,(lambda (f v) (current-extension-compiler-flags
 		       (remove v (current-extension-compiler-flags))))
-       ("Remove C compiler flag (allowed multiple times)" "flag")]
-      [("-p" "--prefix") 
-       ,(lambda (f v) v)
-       ("Add elaboration-time prefix file; i.e., a header file (allowed multiple times)" "file")]]
+       ("Remove C compiler flag (allowed multiple times)" "flag")]]
      [once-each
-      [("--cc") 
-       ,(lambda (f v) (current-extension-compiler v))
-       ("Use <compiler> as C compiler" "compiler")]
-      [("-n" "--name") 
-       ,(lambda (f name) (compiler:option:setup-prefix name))
-       ("Embed <name> as an extra part of public low-level names" "name")]
+      [("--no-prop")
+       ,(lambda (f) (compiler:option:propagate-constants #f))
+       ("Don't propogate constants")]
+      [("--prim")
+       ,(lambda (f) (compiler:option:assume-primitives #t))
+       ("Assume primitives (e.g., treat `car' as `#%car')")]
+      [("--stupid")
+       ,(lambda (f) (compiler:option:stupid #t))
+       ("Compile despite obvious non-syntactic errors")]]
+     [once-any
+      [("--va")
+       ,(lambda (f) (compiler:option:vehicles 'vehicles:automatic))
+       ("Try to optimize function vehicle selection during compilation (default)")]
+      [("--vm") 
+       ,(lambda (f v) 
+	  (unless (string->number v)
+	      (error 'mzc "monolith argument must be a number"))
+	  (let ([num (string->number v)])
+	    (unless (and (integer? num)
+			 (positive? num)
+			 (<= num max-monoliths))
+		    (error 'mzc:compile "monoliths must be a number between 1 and ~a"
+			   max-monoliths))
+	    (compiler:option:monoliths num)))
+       ("Use <n> monolithic vehicles during compilation" "n")]
+      [("--vf")
+       ,(lambda (f) (compiler:option:vehicles 'vehicles:function))
+       ("Use per-function vehicles during compilation")]
+      [("--vu")
+       ,(lambda (f) (compiler:option:vehicles 'vehicles:unit))
+       ("Use per-unit vehicles during compilation")]]
+     [once-each
       [("--seed") 
        ,(lambda (f v) 
 	  (unless (string->number v)
@@ -98,23 +120,14 @@
 			 (< (abs num) (expt 2 30)))
 		    (error 'mzc "random number seed must be a smallish number"))
 	    (compiler:option:seed num)))
-       ("Seed monolith randomizer (with -M)" "seed")]
-      [("-v") 
-       ,(lambda (f) (compiler:option:verbose #t))
-       ("Verbose mode")]
-      [("--no-prop")
-       ,(lambda (f) (compiler:option:propagate-constants #f))
-       ("Don't propogate constants")]
-      [("--prim")
-       ,(lambda (f) (compiler:option:assume-primitives #t))
-       ("Assume primitives (e.g., treat `car' as `#%car')")]
-      [("--stupid")
-       ,(lambda (f) (compiler:option:stupid #t))
-       ("Compile despite obvious non-syntactic errors")]
+       ("Seed monolith randomizer (with --vm)" "seed")]
+      [("-n" "--name") 
+       ,(lambda (f name) (compiler:option:setup-prefix name))
+       ("Embed <name> as an extra part of public low-level names" "name")]
       [("--dirty")
        ,(lambda (f) (compiler:option:clean-intermediate-files #f))
        ("Don't remove intermediate files")]
-      [("-D" "--debug")
+      [("--debug")
        ,(lambda (f) (compiler:option:debug #t))
        ("Write debugging output to dump.txt")]])
    (lambda (accum file . files)
@@ -127,9 +140,9 @@
       `(begin
 	 ,@(map (lambda (s) `(load ,s)) (filter string? accum))
 	 (void))))
-   (list "file or collection" "file or collection")))
+   (list "file or collection" "file or sub-collection")))
 
-(printf "MzScheme compiler version ~ac4, Copyright (c) 1996-8 Sebastian Good.~n"
+(printf "MzScheme compiler version ~a, Copyright (c) 1996-98 Sebastian Good.~n"
 	(version))
 
 (define-values (mode source-files prefix)
@@ -139,15 +152,17 @@
 
 (case mode
   [(compile)
-   ((compile-extensions prefix) source-files #f)]
+   ((compile-extensions prefix) source-files (dest-dir))]
   [(compile-c)
-   ((compile-extensions-to-c prefix) source-files #f)]
+   ((compile-extensions-to-c prefix) source-files (dest-dir))]
   [(compile-o)
-   ((compile-extension-parts prefix) source-files #f)]
+   ((compile-extension-parts prefix) source-files (dest-dir))]
   [(link)
-   (link-extension source-files (current-directory))]
+   (link-extension-parts source-files (or (dest-dir) (current-directory)))]
+  [(glue)
+   (glue-extension-parts source-files (or (dest-dir) (current-directory)))]
   [(zo)
-   ((compile-zos prefix) source-files #f)]
+   ((compile-zos prefix) source-files (dest-dir))]
   [(collection-extension)
    (apply compile-collection-extension source-files)]
   [(collection-zos)
