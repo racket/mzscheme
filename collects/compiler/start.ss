@@ -127,7 +127,8 @@
        ("Clear C compiler flags (allowed multiple times)")]
       [("++ccf") 
        ,(lambda (f v) (current-extension-compiler-flags
-		       (cons v (current-extension-compiler-flags))))
+		       (append (current-extension-compiler-flags)
+			       (list v))))
        ("Add C compiler flag (allowed multiple times)" "flag")]
       [("--ccf") 
        ,(lambda (f v) (current-extension-compiler-flags
@@ -143,7 +144,8 @@
        ("Clear C linker flags (allowed multiple times)")]
       [("++ldf") 
        ,(lambda (f v) (current-extension-linker-flags
-		       (cons v (current-extension-linker-flags))))
+		       (append (current-extension-linker-flags)
+			       (list v))))
        ("Add C linker flag (allowed multiple times)" "flag")]
       [("--ldf") 
        ,(lambda (f v) (current-extension-linker-flags
