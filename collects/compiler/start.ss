@@ -185,7 +185,8 @@
 	 ("Clear C compiler flags")]
 	[("--ccf-show") 
 	 ,(lambda (f) 
-	    (printf "C compiler flags: ~s~n" (current-extension-compiler-flags)))
+	    (printf "C compiler flags: ~s~n" (expand-for-link-variant
+					      (current-extension-compiler-flags))))
 	 ("Show C compiler flags")]]
        [once-each
 	[("--linker") 
@@ -206,8 +207,19 @@
 	 ("Clear C linker flags")]
 	[("--ldf-show") 
 	 ,(lambda (f) 
-	    (printf "C linker flags: ~s~n" (current-extension-linker-flags)))
-	 ("Show C linker flags")]]
+	    (printf "C linker flags: ~s~n" (expand-for-link-variant
+					    (current-extension-linker-flags))))
+	 ("Show C linker flags")]
+	[("++ldl") 
+	 ,(lambda (f v) (current-standard-link-libraries
+			 (append (current-standard-link-libraries)
+				 (list v))))
+	 ("Add C linker library" "lib")]
+	[("--ldl-show") 
+	 ,(lambda (f) 
+	    (printf "C linker libraries: ~s~n" (expand-for-link-variant
+						(current-standard-link-libraries))))
+	 ("Show C linker libraries")]]
        [help-labels
 	"--------------------- executable configuration flags ------------------------"]
        [once-each
