@@ -37,7 +37,7 @@
 
   (define exe-output (make-parameter #f))
   (define exe-embedded-flags (make-parameter '("-mvq-")))
-  (define exe-embedded-collections (make-parameter null))
+  (define exe-embedded-libraries (make-parameter null))
 
   ;; Returns (values mode files prefixes)
   ;;  where mode is 'compile, 'link, or 'zo
@@ -91,13 +91,11 @@
 	  ,"extension")]
 	[("--exe")
 	 ,(lambda (f name) (exe-output name) 'exe)
-	 (,(format "Embed Scheme source(s)/~a in MzScheme to create <exe>" 
-		   (append-zo-suffix ""))
+	 (,(format "Embed module in MzScheme to create <exe>")
 	  ,"exe")]
 	[("--gui-exe")
 	 ,(lambda (f name) (exe-output name) 'gui-exe)
-	 (,(format "Embed Scheme source(s)/~a in MrEd to create <exe>" 
-		   (append-zo-suffix ""))
+	 (,(format "Embed module in MrEd to create <exe>")
 	  ,"exe")]]
        [once-each
 	[("--embedded")
@@ -193,11 +191,11 @@
        [help-labels
 	"--------------------- executable configuration flags ------------------------"]
        [multi
-	[("++collect")
-	 ,(lambda (f v) (exe-embedded-collections
-			 (append (exe-embedded-collections)
-				 (list (list v)))))
-	 ("Embed <collect> in --[gui-]exe executable" "collect")]
+	[("++lib")
+	 ,(lambda (f l c) (exe-embedded-libraries
+			   (append (exe-embedded-libraries)
+				   (list (list l c)))))
+	 ("Embed <lib> from <collect> in --[gui-]exe executable" "lib" "collect")]
 	[("++exf") 
 	 ,(lambda (f v) (exe-embedded-flags
 			 (append (exe-embedded-flags)
@@ -217,21 +215,6 @@
        [help-labels
 	"----------------------- compiler optimization flags -------------------------"]
 
-       [once-any
-	[("-a" "--mrspidey")
-	 ,(lambda (f) 
-	    (with-handlers ([void (lambda (x)
-				    (error 'mzc "MrSpidey is not installed"))])
-	      (collection-path "mrspidey"))
-	    (compiler:option:use-mrspidey #t))
-	 ("Analyze whole program with MrSpidey")]
-	[("-u" "--mrspidey-units")
-	 ,(lambda (f) 
-	    (with-handlers ([void (lambda (x)
-				    (error 'mzc "MrSpidey is not installed"))])
-	      (collection-path "mrspidey"))
-	    (compiler:option:use-mrspidey-for-units #t))
-	 ("Analyze top-level units with MrSpidey")]]
        [once-each
 	[("--no-prop")
 	 ,(lambda (f) (compiler:option:propagate-constants #f))
@@ -348,11 +331,27 @@
 		       dest)
        (printf " [output to \"~a\"]~n" dest))]
     [(exe gui-exe)
-     '(make-embedding-executable (exe-output)
-				(eq? mode 'gui-exe) 
-				(compiler:option:verbose)
-				source-files 
-				(exe-embedded-collections)
-				(exe-embedded-flags))
+     (unless (= 1 (length source-files))
+       (error 'mzc "expected a single module source file to embed; given: ~e"
+	      source-files))
+     ((dynamic-require '(lib "embed.ss" "compiler") 'make-embedding-executable)
+      (exe-output)
+      (eq? mode 'gui-exe) 
+      (compiler:option:verbose)
+      (cons
+       `(#%mzc: (file ,(car source-files)))
+       (map (lambda (l)
+	      `(#t (lib ,@l)))
+	    (exe-embedded-libraries)))
+      null
+      `(require ,(string->symbol
+		  (format
+		   "#%mzc:~a"
+		   (let-values ([(base name dir?) (split-path (car source-files))])
+		     (regexp-replace "[.].?.?.?$" name "")))))
+      (let ([flags (exe-embedded-flags)])
+	(if (eq? mode 'gui-exe) 
+	    (cons "-Z" flags)
+	    flags)))
      (printf " [output to \"~a\"]~n" (exe-output))]
     [else (printf "bad mode: ~a~n" mode)]))
