@@ -9,7 +9,7 @@
 ; Read argv array for arguments and input file name
 (require-library "cmdline.ss")
 (require-library "functio.ss")
-(require-library "file.ss" "mzscheme" "dynext")
+(require-library "file.ss" "dynext")
 
 ; Returns (values mode files prefixes)
 ;  where mode is 'compile, 'link, or 'zo
