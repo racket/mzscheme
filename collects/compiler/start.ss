@@ -110,7 +110,7 @@
 	  "exe")]
 	[("--collection-plt")
 	 ,(lambda (f name) (plt-output name) 'plt-collect)
-	 (,(format "Create .plt <archive> containing specified collections")
+	 (,(format "Create .plt <archive> containing collections")
 	  "archive")]
 	[("--plt")
 	 ,(lambda (f name) (plt-output name) 'plt)
