@@ -232,7 +232,7 @@
 	[("--replace")
 	 ,(lambda (f) (plt-files-replace #t))
 	 ("Files in archive replace existing files when unpacked")]
-	[("--in-plt")
+	[("--at-plt")
 	 ,(lambda (f) (plt-files-plt-relative? #t))
 	 ("Files/dirs in archive are relative to PLT installation directory")]]
        [multi
