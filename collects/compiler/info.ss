@@ -13,7 +13,7 @@
        (list* "sig.ss" "sigload.ss" "spsigload.ss"
 	      (if spidey?
 		  null
-		  (list "sploadr.ss" "mrspideyi.ss" "mrspidey.ss")))]
+		  (list "sploadr.ss" "mrspideyi.ss" "mrspidey.ss" "mrspideyf.ss")))]
       [(compile-elaboration-zos) (list "sig.ss" "sigload.ss")]
       [(mzscheme-launcher-libraries) (list "start.ss")]
       [(mzscheme-launcher-names) (list "mzc")]
