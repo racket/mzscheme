@@ -27,10 +27,10 @@
 ; Read argv array for arguments and input file name
 (require-library "cmdline.ss")
 (require-library "functio.ss")
+(require-library "match.ss")
 (require-library "file.ss" "dynext")
 (require-library "compile.ss" "dynext")
 (require-library "link.ss" "dynext")
-
 
 ; temp!!!!
 ; (require-library "errortrace.ss" "errortrace")
