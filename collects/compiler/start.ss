@@ -429,28 +429,32 @@
      (unless (= 1 (length source-files))
        (error 'mzc "expected a single module source file to embed; given: ~e"
 	      source-files))
-     ((dynamic-require '(lib "embed.ss" "compiler" "private") 
-		       'mzc:make-embedding-executable)
-      (exe-output)
-      (eq? mode 'gui-exe) 
-      (compiler:option:verbose)
-      (cons
-       `(#%mzc: (file ,(car source-files)))
-       (map (lambda (l)
-	      `(#t (lib ,@l)))
-	    (exe-embedded-libraries)))
-      null
-      `(require ,(string->symbol
-		  (format
-		   "#%mzc:~a"
-		   (let-values ([(base name dir?) (split-path (car source-files))])
-		     (path->bytes (path-replace-suffix name #""))))))
-      (let ([flags (exe-embedded-flags)])
-	(if (eq? mode 'gui-exe) 
-	    (cons "-Z" flags)
-	    flags))
-      (exe-aux))
-     (printf " [output to \"~a\"]~n" (exe-output))]
+     (let ([dest ((dynamic-require '(lib "embed.ss" "compiler" "private") 
+				   'mzc:embedding-executable-add-suffix)
+		  (exe-output)
+		  (eq? mode 'gui-exe))])
+       ((dynamic-require '(lib "embed.ss" "compiler" "private") 
+			 'mzc:make-embedding-executable)
+	dest
+	(eq? mode 'gui-exe) 
+	(compiler:option:verbose)
+	(cons
+	 `(#%mzc: (file ,(car source-files)))
+	 (map (lambda (l)
+		`(#t (lib ,@l)))
+	      (exe-embedded-libraries)))
+	null
+	`(require ,(string->symbol
+		    (format
+		     "#%mzc:~a"
+		     (let-values ([(base name dir?) (split-path (car source-files))])
+		       (path->bytes (path-replace-suffix name #""))))))
+	(let ([flags (exe-embedded-flags)])
+	  (if (eq? mode 'gui-exe) 
+	      (cons "-Z" flags)
+	      flags))
+	(exe-aux))
+       (printf " [output to \"~a\"]~n" dest))]
     [(plt)
      (for-each (lambda (fd)
 		 (unless (relative-path? fd)
