@@ -22,7 +22,7 @@
   (error-print-width 512)
 
   (import (prefix compiler:option: "option.ss"))
-  (import "compile.ss")
+  (import "compiler.ss")
 
   ;; Read argv array for arguments and input file name
   (import (lib "cmdline.ss")
