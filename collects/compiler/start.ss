@@ -33,8 +33,8 @@
 (require-library "link.ss" "dynext")
 
 ; temp!!!!
-(require-library "errortrace.ss" "errortrace")
-(profiling-enabled #t)
+; (require-library "errortrace.ss" "errortrace")
+; (profiling-enabled #t) ;; uncomment call to `output-profile-results' at the end
 ; !!!!!!!
 
 (define dest-dir (make-parameter #f))
@@ -293,7 +293,7 @@
      (lambda (c)
        (set! total (+ total (sel c)))
        (printf "====================================================================~n")
-       (printf "time = ~a : no. = ~a : ~e in ~s~n" (sel c) (car c) (caddr c) (cadddr c))
+       (printf "time = ~a : no. = ~a : ~e in ~s~n" (cadr c) (car c) (caddr c) (cadddr c))
        ;; print call paths
        (when paths?
 	 (for-each
@@ -310,5 +310,5 @@
     (printf "Total samples: ~a~n" total)))
 
 ; temp!!
-(output-profile-results #t #t)
+; (output-profile-results #t #t)
 ; !!!!!!
