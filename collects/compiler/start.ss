@@ -57,6 +57,13 @@
 
   (define use-3m (make-parameter #f))
 
+  (define (extract-suffix appender)
+    (bytes->string/latin-1
+     (subbytes
+      (path->bytes (appender (bytes->path #"x")))
+      1)))
+
+
   ;; Returns (values mode files prefixes)
   ;;  where mode is 'compile, 'link, or 'zo
   (define (parse-options argv)
@@ -68,44 +75,44 @@
        [once-any
 	[("-e" "--extension")
 	 ,(lambda (f) 'compile)
-	 (,(format "Output ~a file(s) from Scheme source(s) (default)" (append-extension-suffix "")))]
+	 (,(format "Output ~a file(s) from Scheme source(s) (default)" (extract-suffix append-extension-suffix)))]
 	[("-c" "--c-source")
 	 ,(lambda (f) 'compile-c)
-	 (,(format "Output ~a file(s) from Scheme source(s)" (append-c-suffix "")))]
+	 (,(format "Output ~a file(s) from Scheme source(s)" (extract-suffix append-c-suffix)))]
 	[("-o" "--object")
 	 ,(lambda (f) 'compile-o)
 	 (,(format "Output ~a/~a from Scheme source(s) for a multi-file extension" 
-		   (append-object-suffix "")
-		   (append-constant-pool-suffix "")))]
+		   (extract-suffix append-object-suffix)
+		   (extract-suffix append-constant-pool-suffix)))]
 	[("-l" "--link-extension")
 	 ,(lambda (f) 'link)
 	 (,(format "Link multiple ~a and ~a files into a ~a file"
-		   (append-object-suffix "")
-		   (append-constant-pool-suffix "")
-		   (append-extension-suffix "")))]
+		   (extract-suffix append-object-suffix)
+		   (extract-suffix append-constant-pool-suffix)
+		   (extract-suffix append-extension-suffix)))]
 	[("-g" "--link-glue")
 	 ,(lambda (f) 'link-glue)
 	 (,(format "Create the ~a glue for --link-extension, but do not link"
-		   (append-object-suffix "")))]
+		   (extract-suffix append-object-suffix)))]
 	[("-z" "--zo")
 	 ,(lambda (f) 'zo)
-	 (,(format "Output ~a file(s) from Scheme source(s)" (append-zo-suffix "")))]
+	 (,(format "Output ~a file(s) from Scheme source(s)" (extract-suffix append-zo-suffix)))]
 	[("--collection-extension")
 	 ,(lambda (f) 'collection-extension)
 	 ("Compile specified collection to extension")]
 	[("--collection-zos")
 	 ,(lambda (f) 'collection-zos)
-	 (,(format "Compile specified collection to ~a files" (append-zo-suffix "")))]
+	 (,(format "Compile specified collection to ~a files" (extract-suffix append-zo-suffix)))]
 	[("--cc")
 	 ,(lambda (f) 'cc)
 	 (,(format "Compile arbitrary file(s) for an extension: ~a -> ~a" 
-		   (append-c-suffix "")
-		   (append-object-suffix "")))]
+		   (extract-suffix append-c-suffix)
+		   (extract-suffix append-object-suffix)))]
 	[("--ld")
 	 ,(lambda (f name) (ld-output name) 'ld)
 	 (,(format "Link arbitrary file(s) to create <extension>: ~a -> ~a" 
-		   (append-object-suffix "")
-		   (append-extension-suffix ""))
+		   (extract-suffix append-object-suffix)
+		   (extract-suffix append-extension-suffix))
 	  "extension")]
 	[("--exe")
 	 ,(lambda (f name) (exe-output name) 'exe)
