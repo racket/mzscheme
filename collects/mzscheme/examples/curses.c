@@ -47,7 +47,7 @@ static Scheme_Object *sch_move(int argc, Scheme_Object **argv)
   if (!SCHEME_INTP(argv[1]))
     scheme_wrong_type("move", "exact integer", 1, argc, argv);
 
-  move(SCHEME_INT_VAL(argv[0]), SCHEME_INT_VAL(argv[0]));
+  move(SCHEME_INT_VAL(argv[0]), SCHEME_INT_VAL(argv[1]));
 
   return scheme_void;
 }
