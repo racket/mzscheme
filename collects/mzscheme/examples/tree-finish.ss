@@ -9,11 +9,12 @@
 			grow
 			graft)])
     (make-primitive-class
-     (lambda (class prop:object dispatcher)
+     (lambda (class prop:object preparer dispatcher)
        (primitive-class-prepare-struct-type! 
 	tree-primitive-class
 	prop:object
 	class
+	preparer
 	dispatcher))
      initialize-primitive-object
      'tree%

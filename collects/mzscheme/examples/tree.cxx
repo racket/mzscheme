@@ -201,8 +201,8 @@ void objscheme_init();
 void objscheme_add_procedures(Scheme_Env *);
 Scheme_Object *objscheme_make_class(const char *name, Scheme_Object *sup, 
 				    Scheme_Prim *initf, int num_methods);
-void objscheme_add_method_w_arity(Scheme_Object *c, const char *name, 
-				  Scheme_Prim *f, int mina, int maxa);
+Scheme_Object *objscheme_add_method_w_arity(Scheme_Object *c, const char *name, 
+					    Scheme_Prim *f, int mina, int maxa);
 Scheme_Object *objscheme_make_uninited_object(Scheme_Object *sclass);
 Scheme_Object *objscheme_find_method(Scheme_Object *obj, char *name, void **cache);
 int objscheme_is_a(Scheme_Object *o, Scheme_Object *c);
@@ -212,6 +212,8 @@ int objscheme_is_a(Scheme_Object *o, Scheme_Object *c);
 static Scheme_Object *tree_class;
 /* Cache for lookup of overrideable method: */
 static void *grow_method_cache= NULL;
+/* To recognize original overrideable method: */
+Scheme_Object *grow_prim;
 
 /* We keep a pointer to the Scheme object, and override the
    Grow method to (potentially) dispatch to Scheme. */
@@ -233,9 +235,8 @@ public:
     overriding = objscheme_find_method(scmobj,
 				       "grow",
 				       &grow_method_cache);
-    /* NULL result means not overridden */
 
-    if (overriding) {
+    if (overriding != grow_prim) {
       /* Call Scheme-based overriding implementation: */
       Scheme_Object *argv[2];
 
@@ -260,9 +261,8 @@ public:
     overriding = objscheme_find_method(scmobj,
 				       "grow",
 				       &grow_method_cache);
-    /* NULL result means not overridden */
 
-    if (overriding) {
+    if (overriding != grow_prim) {
       /* When calling the Scheme-based overriding implementation,
 	 we implement the `result' parameter as a boxed string.
 	 The Scheme code mutates the box content to return a 
@@ -270,17 +270,17 @@ public:
       Scheme_Object *argv[2], *res;
 
       argv[0] = scmobj;
-      argv[1] = scheme_make_string(cmd);
-      argv[2] = scheme_box(scheme_make_string(""));
+      argv[1] = scheme_make_utf8_string(cmd);
+      argv[2] = scheme_box(scheme_make_utf8_string(""));
 
       _scheme_apply(overriding, 3, argv);
 
       res = scheme_unbox(argv[2]);
-      if (!SCHEME_STRINGP(res)) {
+      if (!SCHEME_CHAR_STRINGP(res)) {
 	scheme_wrong_type("result for tree%'s grow method",
 			  "string", -1, 0, &res);
       } else
-	result = SCHEME_STR_VAL(argv[2]);
+	result = scheme_utf8_encode_to_buffer(SCHEME_CHAR_STR_VAL(argv[2]), -1, NULL, 0);
     } else {
       Tree::Grow(cmd, result);
     }
@@ -354,18 +354,18 @@ Scheme_Object *Grow(int argc, Scheme_Object **argv)
     Tree *t;
     char *cmd, *result;
 
-    if (!SCHEME_STRINGP(argv[1]))
+    if (!SCHEME_CHAR_STRINGP(argv[1]))
       scheme_wrong_type("tree%'s grow", 
 			"string", 
 			1, argc, argv);
     if (!SCHEME_BOXP(argv[2])
-	|| !SCHEME_STRINGP(SCHEME_BOX_VAL(argv[2])))
+	|| !SCHEME_CHAR_STRINGP(SCHEME_BOX_VAL(argv[2])))
       scheme_wrong_type("tree%'s grow", 
 			"boxed string", 
 			2, argc, argv);
 
-    cmd = SCHEME_STR_VAL(argv[1]);
-    result = SCHEME_STR_VAL(SCHEME_BOX_VAL(argv[2]));
+    cmd = scheme_utf8_encode_to_buffer(SCHEME_CHAR_STR_VAL(argv[1]), -1, NULL, 0);
+    result = scheme_utf8_encode_to_buffer(SCHEME_CHAR_STR_VAL(SCHEME_BOX_VAL(argv[2])), 1, NULL, 0);
 
     /* Extract the C++ pointer: */
     t = (Tree *)OBJSCHEME_GET_CPP_OBJ(obj);
@@ -374,7 +374,7 @@ Scheme_Object *Grow(int argc, Scheme_Object **argv)
     t->Tree::Grow(cmd, result);
 
     /* Put result back in box: */
-    SCHEME_BOX_VAL(argv[2]) = scheme_make_string(result);
+    SCHEME_BOX_VAL(argv[2]) = scheme_make_utf8_string(result);
   }
   
   return scheme_void;
@@ -478,17 +478,19 @@ Scheme_Object *scheme_initialize(Scheme_Env *env)
 				    Make_Tree,  /* init func */
 				    5);         /* num methods */
 
-  objscheme_add_method_w_arity(tree_class, "grow",
-			       Grow, 1, 2);
-  objscheme_add_method_w_arity(tree_class, "graft", 
-			       Graft, 2, 2);
+  scheme_register_extension_global(&grow_prim, sizeof(grow_prim));
 
-  objscheme_add_method_w_arity(tree_class, "get-left",
-			       Get_Left, 0, 0);
-  objscheme_add_method_w_arity(tree_class, "get-right",
-			       Get_Right, 0, 0);
-  objscheme_add_method_w_arity(tree_class, "get-leaves",
-			       Get_Leaves, 0, 0);
+  grow_prim = objscheme_add_method_w_arity(tree_class, "grow",
+					   Grow, 1, 2);
+  (void)objscheme_add_method_w_arity(tree_class, "graft", 
+				     Graft, 2, 2);
+  
+  (void)objscheme_add_method_w_arity(tree_class, "get-left",
+				     Get_Left, 0, 0);
+  (void)objscheme_add_method_w_arity(tree_class, "get-right",
+				     Get_Right, 0, 0);
+  (void)objscheme_add_method_w_arity(tree_class, "get-leaves",
+				     Get_Leaves, 0, 0);
 
   return scheme_reload(env);
 }
@@ -520,18 +522,17 @@ Scheme_Object *scheme_module_name()
         arguments v ...
 
       (primitive-class-prepare-struct-type! prim-class gen-property
-        gen-value dispatcher) - prepares a class's struct-type for
-        objects generated C-side, so it must be called before any C++
-        objects are Schemified.
+        gen-value preparer dispatcher) - prepares a class's struct-type for
+        objects generated C-side; returns a constructor, predicate,
+        and a struct:type for derived classes. The constructor and
+        struct:type map the given dispatcher to the class.
 
-        Returns a constructor, predicate, and a struct:type for
-        derived classes. The constructor and struct:type map the given
-        dispatcher to the class.
+        The preparer takes a symbol naming the method. It returns a
+        value to be used in future calls to the dispatcher.
 
-        The dispatcher takes two arguments: an object, and a
-        method-specific box initially containing the method name. It
-        returns #f (meaning the method is not overridden by a
-        non-primitive method) or a method procedure.
+        The dispatcher takes two arguments: an object and a
+        method-specific value produced by the prepaper. It returns a
+        method procedure.
 
       (primitive-class-find-method prim-class sym) - gets the method
         procedure for the given symbol from the class. The procedure
@@ -570,11 +571,10 @@ Scheme_Object *scheme_module_name()
 
      Scheme_Object *objscheme_find_method(Scheme_Object *obj, char
         *name, void **cache) - finds a method by name in a Scheme-side
-        object. If the method is not overridden Scheme-side, the
-        result is NULL, otherwise it is a Scheme procedure for the
-        method (which takes the Scheme-side `self' as its first
-        argument). The cache pointer should point to static,
-        class-specific space for caching lookup information.
+        object. It is a Scheme procedure for the method (which takes
+        the Scheme-side `self' as its first argument). The cache
+        pointer should point to static, class-specific space for
+        caching lookup information.
 
      int objscheme_is_a(Scheme_Object *o, Scheme_Object *c) - returns 1
         if the given Scheme-side object is an instance of the given
@@ -598,6 +598,7 @@ Scheme_Type objscheme_class_type;
 
 static Scheme_Object *object_struct;
 static Scheme_Object *object_property;
+static Scheme_Object *preparer_property;
 static Scheme_Object *dispatcher_property;
 
 #define CONS(a, b) scheme_make_pair(a, b)
@@ -622,7 +623,7 @@ static Scheme_Object *init_prim_obj(int argc, Scheme_Object **argv)
 static Scheme_Object *class_prepare_struct_type(int argc, Scheme_Object **argv)
 {
   Scheme_Object *name, *base_stype, *stype, *derive_stype;
-  Scheme_Object **names, **vals, *a[3];
+  Scheme_Object **names, **vals, *a[3], *props;
   Objscheme_Class *c;
   int flags, count;
 
@@ -630,7 +631,8 @@ static Scheme_Object *class_prepare_struct_type(int argc, Scheme_Object **argv)
     scheme_wrong_type("primitive-class-prepare-struct-type!", "primitive-class", 0, argc, argv);
   if (SCHEME_TYPE(argv[1]) != scheme_struct_property_type)
     scheme_wrong_type("primitive-class-prepare-struct-type!", "struct-type-property", 1, argc, argv);
-  scheme_check_proc_arity("primitive-class-prepare-struct-type!", 2, 3, argc, argv);
+  scheme_check_proc_arity("primitive-class-prepare-struct-type!", 1, 3, argc, argv);
+  scheme_check_proc_arity("primitive-class-prepare-struct-type!", 2, 4, argc, argv);
 
   c = ((Objscheme_Class *)argv[0]);
   
@@ -660,32 +662,37 @@ static Scheme_Object *class_prepare_struct_type(int argc, Scheme_Object **argv)
 					: object_struct),
 				       NULL,
 				       0, 0, NULL,
-				       NULL);
+				       NULL, NULL);
   c->base_struct_type = base_stype;
 
   /* Type to use when instantiating from C: */
+
+  props = CONS(CONS(object_property, 
+		    argv[0]),
+	       scheme_null);
 
   stype = scheme_make_struct_type(name,
 				  base_stype, 
 				  NULL,
 				  0, 0, NULL,
 				  CONS(CONS(argv[1], argv[2]),
-				       CONS(CONS(object_property, 
-						 argv[0]),
-					    scheme_null)));
+				       props),
+				  NULL);
   
   c->struct_type = stype;
   
   /* Type to derive from Scheme: */
   
+  props = CONS(CONS(preparer_property, argv[3]),
+	       CONS(CONS(dispatcher_property, argv[4]),
+		    props));
+
   derive_stype = scheme_make_struct_type(name,
 					 base_stype, 
 					 NULL,
 					 0, 0, NULL,
-					 CONS(CONS(dispatcher_property, argv[3]),
-					      CONS(CONS(object_property, 
-							argv[0]),
-						   scheme_null)));
+					 props, 
+					 NULL);
   
   /* Type to instantiate from Scheme: */
   
@@ -693,11 +700,8 @@ static Scheme_Object *class_prepare_struct_type(int argc, Scheme_Object **argv)
 				  base_stype, 
 				  NULL,
 				  0, 0, NULL,
-				  CONS(CONS(argv[1], argv[2]),
-				       CONS(CONS(dispatcher_property, argv[3]),
-					    CONS(CONS(object_property, 
-						      argv[0]),
-						 scheme_null))));
+				  CONS(CONS(argv[1], argv[2]), props),
+				  NULL);
   
   /* Need constructor from instantiate type: */
   flags = (SCHEME_STRUCT_NO_TYPE
@@ -795,8 +799,8 @@ Scheme_Object *objscheme_make_class(const char *name, Scheme_Object *sup,
   return (Scheme_Object *)sclass;
 }
 
-void objscheme_add_method_w_arity(Scheme_Object *c, const char *name,
-				  Scheme_Prim *f, int mina, int maxa)
+Scheme_Object *objscheme_add_method_w_arity(Scheme_Object *c, const char *name,
+					    Scheme_Prim *f, int mina, int maxa)
 {
   Scheme_Object *s;
   Objscheme_Class *sclass;
@@ -812,6 +816,8 @@ void objscheme_add_method_w_arity(Scheme_Object *c, const char *name,
   sclass->names[sclass->num_installed] = s;
 
   sclass->num_installed++;
+
+  return s;
 }
 
 int objscheme_is_a(Scheme_Object *o, Scheme_Object *c)
@@ -838,6 +844,10 @@ void objscheme_init()
   scheme_register_extension_global(&object_property, sizeof(object_property));
   object_property = scheme_make_struct_type_property(scheme_intern_symbol("primitive-object"));
   
+  /* Attaches a preparer function to a derived class: */
+  scheme_register_extension_global(&preparer_property, sizeof(preparer_property));
+  preparer_property = scheme_make_struct_type_property(scheme_intern_symbol("primitive-preparer"));
+
   /* Attaches a dispatcher function to a derived class: */
   scheme_register_extension_global(&dispatcher_property, sizeof(dispatcher_property));
   dispatcher_property = scheme_make_struct_type_property(scheme_intern_symbol("primitive-dispatcher"));
@@ -847,7 +857,7 @@ void objscheme_init()
   object_struct = scheme_make_struct_type(scheme_intern_symbol("primitive-object"), 
 					  NULL, NULL,
 					  0, 2, NULL,
-					  NULL);
+					  NULL, NULL);
 }
 
 void objscheme_add_procedures(Scheme_Env *env)
@@ -861,7 +871,7 @@ void objscheme_add_procedures(Scheme_Env *env)
   scheme_add_global("primitive-class-prepare-struct-type!",
 		    scheme_make_prim_w_arity(class_prepare_struct_type,
 					     "primitive-class-prepare-struct-type!",
-					     4, 4),
+					     5, 5),
 		    env);
   
   scheme_add_global("primitive-class-find-method",
@@ -873,29 +883,29 @@ void objscheme_add_procedures(Scheme_Env *env)
 
 Scheme_Object *objscheme_find_method(Scheme_Object *obj, char *name, void **cache)
 {
-  Scheme_Object *s, *m, *p[2], *dispatcher;
+  Scheme_Object *s, *p[2], *dispatcher;
 
   if (!obj)
     return NULL;
 
-  dispatcher = scheme_struct_type_property_ref(dispatcher_property, obj);
+  dispatcher = scheme_struct_type_property_ref(dispatcher_property, (Scheme_Object *)obj);
   if (!dispatcher)
     return NULL;
 
   if (*cache)
     s = (Scheme_Object *)*cache;
   else {
-    scheme_register_extension_global((void *)cache, sizeof(void *));
-    s = scheme_box(scheme_intern_symbol(name));
+    s = scheme_intern_symbol(name);
+    p[0] = s;
+    s = scheme_struct_type_property_ref(preparer_property, (Scheme_Object *)obj);
+    if (!s)
+      return NULL;
+    s = scheme_apply(s, 1, p);
+    scheme_register_extension_global((void *)cache, sizeof(Scheme_Object*));
     *cache = s;
   }
 
   p[0] = obj;
   p[1] = s;
-  m = scheme_apply(dispatcher, 2, p);
-
-  if (SCHEME_FALSEP(m))
-    return NULL;
-
-  return m;
+  return _scheme_apply(dispatcher, 2, p);
 }
