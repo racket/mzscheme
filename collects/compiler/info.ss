@@ -3,6 +3,7 @@
   (case request
     [(name) "mzc"]
     [(compile-prefix) '(begin
+			 (read-case-sensitive #t)
 			 (require-library "refer.ss")
 			 (require-library "sigload.ss" "compiler"))]
     [(compile-omit-files) 

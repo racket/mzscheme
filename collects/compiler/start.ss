@@ -4,6 +4,8 @@
 ; On error, exit with -1 status code
 (error-escape-handler (lambda () (exit -1)))
 
+(read-case-sensitive #t)
+
 (require-library "option.ss" "compiler")
 
 ; Read argv array for arguments and input file name
@@ -82,6 +84,9 @@
 		       (remove v (current-extension-compiler-flags))))
        ("Remove C compiler flag (allowed multiple times)" "flag")]]
      [once-each
+      [("-a" "--mrspidey")
+       ,(lambda (f) (compiler:option:use-mrspidey #t))
+       ("Analyze with MrSpidey")]
       [("--no-prop")
        ,(lambda (f) (compiler:option:propagate-constants #f))
        ("Don't propogate constants")]
