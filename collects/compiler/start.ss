@@ -322,7 +322,8 @@
   [(exe gui-exe)
    (require-library "embed.ss" "compiler")
    (make-embedding-executable (exe-output) (eq? mode 'gui-exe) 
-			      source-files '("-mvq-"))]
+			      source-files '("-mvq-"))
+   (printf " [output to \"~a\"]~n" (exe-output))]
   [else (printf "bad mode: ~a~n" mode)])
 
 (define (output-profile-results paths? sort-time?)
