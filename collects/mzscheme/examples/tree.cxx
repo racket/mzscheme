@@ -1,6 +1,3 @@
-
-#include "escheme.h"
-
 /* Example demonstrating how to inject a C++ class into MzScheme's
    class world. 
 
@@ -43,6 +40,8 @@
     (send o grow 1)   ; C++ calls apple-tree%'s `grow' for `a'
     (send a get-left) ; -> #<object:apple-tree>
 */
+
+#include "escheme.h"
 
 /**********************************************************/
 /* The original C++ class: Tree                           */
