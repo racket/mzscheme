@@ -51,6 +51,9 @@
        ,(lambda (f) 'collection-zos)
        (,(format "Compile specified collection to ~a files" (append-zo-suffix "")))]]
      [once-each
+      [("--embedded")
+       ,(lambda (f) (compiler:option:compile-for-embedded #t))
+       ("Compile for embedded run-time engine, with -c/-o/-g")]
       [("-p" "--prefix") 
        ,(lambda (f v) v)
        ("Add elaboration-time prefix file for -e/-c/-o/-z (allowed multiple times)" "file")]
@@ -150,14 +153,20 @@
 
 (require-relative-library "compile.ss")
 
+(define (never-embedded action)
+  (when (compiler:option:compile-for-embedded)
+	(error 'mzc "cannot ~a an extension for an embedded MzScheme" action)))
+
 (case mode
   [(compile)
+   (never-embedded "compile")
    ((compile-extensions prefix) source-files (dest-dir))]
   [(compile-c)
    ((compile-extensions-to-c prefix) source-files (dest-dir))]
   [(compile-o)
    ((compile-extension-parts prefix) source-files (dest-dir))]
   [(link)
+   (never-embedded "link")
    (link-extension-parts source-files (or (dest-dir) (current-directory)))]
   [(glue)
    (glue-extension-parts source-files (or (dest-dir) (current-directory)))]
