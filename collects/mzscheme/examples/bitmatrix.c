@@ -80,7 +80,7 @@ Scheme_Object *make_bit_matrix(int argc, Scheme_Object **argv)
   size = _scheme_apply(mult, 2, a);
   if (SCHEME_BIGNUMP(size))
     /* Use scheme_raise_exn to raise exceptions. The first argument
-       describes the tye of the exception. After an exception-specific
+       describes the type of the exception. After an exception-specific
        number of Scheme values (none in this case), the rest of the
        arguments are like printf. */
     scheme_raise_exn(MZEXN_MISC_OUT_OF_MEMORY, "make-bit-matrix: out of memory");

@@ -12,10 +12,14 @@ in C:
    procedures and definitions, a little more type dispatching, and
    returning multiple values.
 
- * makeadder.c - defines `make-adder', whch takes a number and returns
-   a procedure that takes another number to add to it. Demonstrates
-   closure creation in C, getting Scheme global values, and calling
-   Scheme procedures from C.
+ * makeadder.c - defines `make-adder', which takes a number and
+   returns a procedure that takes another number to add to
+   it. Demonstrates closure creation in C, getting Scheme global
+   values, and calling Scheme procedures from C.
+
+ * catch.c - defined `eval-string/catch-error', which catches
+   excpetions whil evaluating a string. Demonstrates how to catch
+   exceptions from C code.
 
  * bitmatrix.c - implements two-dimentional bit matrixes with some
    operations. Demonstrates defining a new Scheme data type, data
