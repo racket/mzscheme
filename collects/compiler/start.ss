@@ -96,7 +96,7 @@
        ("Compile for embedded run-time engine, with -c/-o/-g")]
       [("-p" "--prefix") 
        ,(lambda (f v) v)
-       ("Add elaboration-time prefix file for -e/-c/-o/-z (allowed multiple times)" "file")]
+       ("Add elaboration-time prefix file for -e/-c/-o/-z" "file")]
       [("-d" "--destination") 
        ,(lambda (f d)
 	  (unless (directory-exists? d)
@@ -124,16 +124,16 @@
      [multi
       [("--ccf-clear") 
        ,(lambda (f) (current-extension-compiler-flags null))
-       ("Clear C compiler flags (allowed multiple times)")]
+       ("Clear C compiler flags")]
       [("++ccf") 
        ,(lambda (f v) (current-extension-compiler-flags
 		       (append (current-extension-compiler-flags)
 			       (list v))))
-       ("Add C compiler flag (allowed multiple times)" "flag")]
+       ("Add C compiler flag" "flag")]
       [("--ccf") 
        ,(lambda (f v) (current-extension-compiler-flags
 		       (remove v (current-extension-compiler-flags))))
-       ("Remove C compiler flag (allowed multiple times)" "flag")]]
+       ("Remove C compiler flag" "flag")]]
      [once-each
       [("--linker") 
        ,(lambda (f v) (current-extension-linker v))
@@ -141,16 +141,29 @@
      [multi
       [("--ldf-clear") 
        ,(lambda (f) (current-extension-linker-flags null))
-       ("Clear C linker flags (allowed multiple times)")]
+       ("Clear C linker flags")]
       [("++ldf") 
        ,(lambda (f v) (current-extension-linker-flags
 		       (append (current-extension-linker-flags)
 			       (list v))))
-       ("Add C linker flag (allowed multiple times)" "flag")]
+       ("Add C linker flag" "flag")]
       [("--ldf") 
        ,(lambda (f v) (current-extension-linker-flags
 		       (remove v (current-extension-linker-flags))))
-       ("Remove C linker flag (allowed multiple times)" "flag")]]
+       ("Remove C linker flag" "flag")]]
+     [multi
+      [("--zof-clear") 
+       ,(lambda (f) (zo-compile-flags null))
+       ("Clear .zo compiler flags")]
+      [("++zof") 
+       ,(lambda (f v) (zo-compile-flags
+		       (append (zo-compile-flags)
+			       (list (string->symbol v)))))
+       ("Add .zo compiler flag" "flag")]
+      [("--zof") 
+       ,(lambda (f v) (zo-compile-flags
+		       (remove (string->symbol v) (zo-compile-flags))))
+       ("Remove .zo compiler flag" "flag")]]
      [once-any
       [("-a" "--mrspidey")
        ,(lambda (f) 
