@@ -429,7 +429,8 @@
      (unless (= 1 (length source-files))
        (error 'mzc "expected a single module source file to embed; given: ~e"
 	      source-files))
-     ((dynamic-require '(lib "embed.ss" "compiler") 'make-embedding-executable)
+     ((dynamic-require '(lib "embed.ss" "compiler" "private") 
+		       'mzc:make-embedding-executable)
       (exe-output)
       (eq? mode 'gui-exe) 
       (compiler:option:verbose)
