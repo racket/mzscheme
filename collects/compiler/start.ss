@@ -44,6 +44,7 @@
 
 (define exe-output (make-parameter #f))
 (define exe-embedded-flags (make-parameter '("-mvq-")))
+(define exe-embedded-collections (make-parameter null))
 
 ; Returns (values mode files prefixes)
 ;  where mode is 'compile, 'link, or 'zo
@@ -199,6 +200,11 @@
      [help-labels
       "--------------------- executable configuration flags ------------------------"]
      [multi
+      [("++collect")
+       ,(lambda (f v) (exe-embedded-collections
+		       (append (exe-embedded-collections)
+			       (list (list v)))))
+       ("Embed <collect> in --[gui-]exe executable" "collect")]
       [("++exf") 
        ,(lambda (f v) (exe-embedded-flags
 		       (append (exe-embedded-flags)
@@ -352,8 +358,12 @@
      (printf " [output to \"~a\"]~n" dest))]
   [(exe gui-exe)
    (require-library "embed.ss" "compiler")
-   (make-embedding-executable (exe-output) (eq? mode 'gui-exe) 
-			      source-files (exe-embedded-flags))
+   (make-embedding-executable (exe-output)
+			      (eq? mode 'gui-exe) 
+			      (compiler:option:verbose)
+			      source-files 
+			      (exe-embedded-collections)
+			      (exe-embedded-flags))
    (printf " [output to \"~a\"]~n" (exe-output))]
   [else (printf "bad mode: ~a~n" mode)])
 
