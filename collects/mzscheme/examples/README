@@ -35,10 +35,12 @@ end use the mzc `c-lambda', etc. forms.
    world.
 
 
- * fmod-ez.ss - same as fmod.c, but implemented with `c-lambda'.
+ * fmod-ez.ss - same as fmod.c, but with 10% of the code. Demonstrates
+   `c-lambda'.
 
  * cfile.ss - simple (and unsafe) glue to the fopen(), fread(),
-   fwrite(), and fclose() C library functions.
+   fwrite(), and fclose() C library functions. Demonstrates the use of
+   `(pointer ...)' types.
 
  * msgbox.ss - a Windows-only example, provides a `message-box'
    procedure. Demonstrates some of the limitations of `c-lambda' and

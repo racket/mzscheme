@@ -14,7 +14,7 @@
   ;;  and we can pretend that a window is a string
   ;;  for the purposes of providing a NULL:
   (define unsafe-message-box
-    (c-lambda (char-string ; always use #f (not really a string)
+    (c-lambda ((pointer "void") ; always use #f
 	       nonnull-char-string ; title
 	       nonnull-char-string ; message
 	       int)   ; style
