@@ -19,7 +19,6 @@
 ; On error, exit with -1 status code
 (error-escape-handler (lambda () (exit -1)))
 
-(read-case-sensitive #t)
 (error-print-width 512)
 
 (require-library "option.ss" "compiler")

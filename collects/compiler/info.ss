@@ -5,7 +5,6 @@
     (case request
       [(name) "mzc"]
       [(compile-prefix) `(begin
-			   (read-case-sensitive #t)
 			   (require-library "refer.ss")
 			   (require-library "setupsig.ss" "compiler")
 			   ,(if spidey?
