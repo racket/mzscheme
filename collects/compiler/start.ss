@@ -21,6 +21,7 @@
 
   (error-print-width 512)
 
+  (import (prefix compiler:option: "option.ss"))
   (import "compile.ss")
 
   ;; Read argv array for arguments and input file name
@@ -179,7 +180,7 @@
 				 (list (string->symbol v)))))
 	 ("Add .zo compiler flag (see `compile-file' docs)" "flag")]
 	[("--zof") 
-	 ,(lambda (f v) (zo-compile-flags
+	 ,(lambda (f v) (compiler:option:zo-compiler-flags
 			 (remove (string->symbol v) (compiler:option:zo-compiler-flags))))
 	 ("Remove .zo compiler flag" "flag")]
 	[("--zof-clear") 
@@ -291,7 +292,7 @@
 	  (version))
 
   (define-values (mode source-files prefix)
-    (parse-options argv))
+    (parse-options (global-defined-value 'argv)))
 
   (define (never-embedded action)
     (when (compiler:option:compile-for-embedded)
@@ -317,8 +318,6 @@
     [(collection-zos)
      (apply compile-collection-zos source-files)]
     [(cc)
-     (require-library "compile.ss" "dynext")
-     (require-library "file.ss" "dynext")
      (for-each
       (lambda (file)
 	(let* ([base (extract-base-filename/c file 'mzc)]
@@ -333,10 +332,8 @@
 	  (printf " [output to \"~a\"]~n" dest)))
       source-files)]
     [(ld)
-     (require-library "compile.ss" "dynext")
-     (require-library "link.ss" "dynext")
      (extract-base-filename/ext (ld-output) 'mzc)
-					; (for-each (lambda (file) (extract-base-filename/o file 'mzc)) source-files)
+     ;; (for-each (lambda (file) (extract-base-filename/o file 'mzc)) source-files)
      (let ([dest (if (dest-dir)
 		     (build-path (dest-dir) (ld-output))
 		     (ld-output))])
@@ -348,8 +345,7 @@
 		       dest)
        (printf " [output to \"~a\"]~n" dest))]
     [(exe gui-exe)
-     (require-library "embed.ss" "compiler")
-     (make-embedding-executable (exe-output)
+     '(make-embedding-executable (exe-output)
 				(eq? mode 'gui-exe) 
 				(compiler:option:verbose)
 				source-files 
