@@ -7,8 +7,27 @@
      mzc --cc tree.cxx
      mzc --linker /usr/bin/g++ --ld tree.so tree.o
 
-  Example use:
-    (define tree% (load-extension "tree.so"))
+  The C++ class Tree defines the following:
+
+    Tree(int init_leaves);                       constructor
+
+    int leaves;                                  \ fields
+    Tree *left_branch, *right_branch;            /
+
+    void Graft(Tree *left, Tree *right);         method
+
+    virtual void Grow(int n);                    \ overloaded and
+    virtual void Grow(char *cmd, char *&result); / with ref param
+
+  The Scheme version of the class has the following methods:
+
+    "get-leaves", "get-left", "get-rght" -- gets field values
+    "grow" -- override to replace C++ methods
+    "graft" -- takes Scheme tree% objects
+
+  Example use in Scheme:
+
+    (load-extension "tree.so") ; defines tree% 
 
     (define o (make-object tree% 10))
     (send o get-leaves) ; => 10
@@ -17,16 +36,24 @@
     (send o grow 2) ; grows new branches on the frontier
     (send o get-left) ; => #<object:tree%>
     (send (send o get-left) get-leaves) ; => 2
+    
+    (define b (box "sunshine"))
+    (send o grow "sunshine" b)
+    (unbox b) ; => "sprouted left"
 
     (define apple-tree%
       (class tree% ()
         (inherit graft)
         (override
-          ;; This `grow' drops branches and grows new ones
-	  [grow (lambda (n)
+          ;; This `grow' drops branches and grows new ones.
+	  ;; For the command-string form, it does nothing.
+	  [grow (case-lambda 
+		 [(n)
                   (let ([l (make-object apple-tree%)]
 		        [r (make-object apple-tree%)])
-		    (graft l r)))])
+		    (graft l r))]
+		 [(cmd result)
+		  (set-box! result (format "ignoring ~a" cmd))])])
 	(sequence (super-init 1))))
 
     (define a (make-object apple-tree%))
@@ -39,6 +66,9 @@
     (send o graft a #f)
     (send o grow 1)   ; C++ calls apple-tree%'s `grow' for `a'
     (send a get-left) ; -> #<object:apple-tree>
+
+    (send a grow "sunshine" b)
+    (unbox b) ; => "ignoring sunshine"
 */
 
 #include "escheme.h"
@@ -48,7 +78,7 @@
 /**********************************************************/
 
 /* This kind of tree never grows or loses leaves. It only changes when
-   it grows subtrees, or when subtrees are grafted onto it. We could
+   it grows subtrees, or when subtrees are grafted onto it. We can
    derive new classes (in Scheme) for trees that can grow leaves and
    fruit. */
 
@@ -74,6 +104,8 @@ public:
     user_data = NULL;
   }
 
+  /* The Grow method is overloaded... */
+
   virtual void Grow(int n) {
     if (left_branch)
       left_branch->Grow(n);
@@ -83,6 +115,26 @@ public:
       right_branch->Grow(n);
     else
       right_branch = new Tree(n);
+  }
+
+  virtual void Grow(char *command, char *&result) {
+    if (!strcmp(command, "sunshine")) {
+      if (left_branch)
+	left_branch->Grow(command, result);
+      else {
+	left_branch = new Tree(1);
+	result = "sprouted left";
+      }
+    } else if (!strcmp(command, "water")) {
+      if (right_branch)
+	right_branch->Grow(command, result);
+      else {
+	right_branch = new Tree(1);
+	result = "sprouted left";
+      }
+    } else {
+      result = "unrecognized command for growing";
+    }
   }
 
   void Graft(Tree *left, Tree *right) {
@@ -165,6 +217,49 @@ public:
       Tree::Grow(n);
     }
   }
+
+  /* Same strategy for other form of Grow, but we have to
+     deal with the "result" parameter: */
+  virtual void Grow(char *cmd, char *&result) {
+    Scheme_Object *scmobj;
+    Scheme_Object *overriding;
+
+    scmobj = (Scheme_Object *)user_data;
+
+    /* Really should put this in one place, since it's duplicated
+       from above... */
+    if (!grow_method) {
+      scheme_register_extension_global(&grow_method, sizeof(grow_method));
+      grow_method = scheme_get_generic_data(tree_class,
+					    scheme_intern_symbol("grow"));
+    }
+    
+    overriding = scheme_apply_generic_data(grow_method,
+					   scmobj,
+					   0);
+
+    if (overriding) {
+      /* When calling the Scheme-based overriding implementation,
+	 we implement the `result' parameter as a boxed string.
+	 The Scheme code mutates the box content to return a 
+	 result. */
+      Scheme_Object *argv[2], *res;
+
+      argv[0] = scheme_make_string(cmd);
+      argv[1] = scheme_box(scheme_make_string(""));
+
+      _scheme_apply(overriding, 2, argv);
+
+      res = scheme_unbox(argv[1]);
+      if (!SCHEME_STRINGP(res)) {
+	scheme_wrong_type("result for tree%'s grow method",
+			  "string", -1, 0, &res);
+      } else
+	result = SCHEME_STR_VAL(argv[1]);
+    } else {
+      Tree::Grow(cmd, result);
+    }
+  }
 };
 
 /**********************************************************/
@@ -206,20 +301,47 @@ Scheme_Object *Make_Tree(Scheme_Object *obj, int argc, Scheme_Object **argv)
 
 Scheme_Object *Grow(Scheme_Object *obj, int argc, Scheme_Object **argv)
 {
-  Tree *t;
-  int n;
+  if (argc == 1) {
+    Tree *t;
+    int n;
 
-  if (!SCHEME_INTP(argv[0]))
-    scheme_wrong_type("tree%'s grow", 
-		      "fixnum", 
-		      0, argc, argv);
-  n = SCHEME_INT_VAL(argv[0]);
+    if (!SCHEME_INTP(argv[0]))
+      scheme_wrong_type("tree%'s grow", 
+			"fixnum", 
+			0, argc, argv);
+    n = SCHEME_INT_VAL(argv[0]);
+    
+    /* Extract the C++ pointer: */
+    t = (Tree *)SCHEME_CPP_OBJ(obj);
+    
+    /* Call method (without override check): */
+    t->Tree::Grow(n);
+  } else {
+    Tree *t;
+    char *cmd, *result;
 
-  /* Extract the C++ pointer: */
-  t = (Tree *)SCHEME_CPP_OBJ(obj);
-  
-  /* Call method (without override check): */
-  t->Tree::Grow(n);
+    if (!SCHEME_STRINGP(argv[0]))
+      scheme_wrong_type("tree%'s grow", 
+			"string", 
+			0, argc, argv);
+    if (!SCHEME_BOXP(argv[1])
+	|| !SCHEME_STRINGP(SCHEME_BOX_VAL(argv[1])))
+      scheme_wrong_type("tree%'s grow", 
+			"boxed string", 
+			1, argc, argv);
+
+    cmd = SCHEME_STR_VAL(argv[0]);
+    result = SCHEME_STR_VAL(SCHEME_BOX_VAL(argv[1]));
+
+    /* Extract the C++ pointer: */
+    t = (Tree *)SCHEME_CPP_OBJ(obj);
+    
+    /* Call method (without override check): */
+    t->Tree::Grow(cmd, result);
+
+    /* Put result back in box: */
+    SCHEME_BOX_VAL(argv[1]) = scheme_make_string(result);
+  }
   
   return scheme_void;
 }
@@ -311,7 +433,7 @@ Scheme_Object *scheme_initialize(Scheme_Env *env)
 				 5);         /* num methods */
 
   scheme_add_method_w_arity(tree_class, "grow",
-			    Grow, 1, 1);
+			    Grow, 1, 2);
   scheme_add_method_w_arity(tree_class, "graft", 
 			    Graft, 2, 2);
 
@@ -324,10 +446,14 @@ Scheme_Object *scheme_initialize(Scheme_Env *env)
 
   scheme_made_class(tree_class);
   
-  return tree_class;
+  scheme_add_global("tree%", tree_class, env);
+
+  return scheme_void;
 }
 
 Scheme_Object *scheme_reload(Scheme_Env *env)
 {
-  return tree_class;
+  scheme_add_global("tree%", tree_class, env);
+
+  return scheme_void;
 }
