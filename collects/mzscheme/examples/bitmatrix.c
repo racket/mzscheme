@@ -281,19 +281,19 @@ Scheme_Object *scheme_initialize(Scheme_Env *env)
      static variables: */
 
   scheme_register_extension_global(&mult, sizeof(Scheme_Object*));
-  mult = scheme_lookup_global(scheme_intern_symbol("#%*"), env);
+  mult = scheme_builtin_value("*");
 
   scheme_register_extension_global(&add, sizeof(Scheme_Object*));
-  add = scheme_lookup_global(scheme_intern_symbol("#%+"), env);
+  add = scheme_builtin_value("+");
 
   scheme_register_extension_global(&sub, sizeof(Scheme_Object*));
-  sub = scheme_lookup_global(scheme_intern_symbol("#%-"), env);
+  sub = scheme_builtin_value("-");
 
   scheme_register_extension_global(&modulo, sizeof(Scheme_Object*));
-  modulo = scheme_lookup_global(scheme_intern_symbol("#%modulo"), env);
+  modulo = scheme_builtin_value("modulo");
 
   scheme_register_extension_global(&neg, sizeof(Scheme_Object*));
-  neg = scheme_lookup_global(scheme_intern_symbol("#%negative?"), env);
+  neg = scheme_builtin_value("negative?");
 
   return scheme_reload(env);
 }
