@@ -51,6 +51,7 @@
   (define plt-name (make-parameter default-plt-name))
   (define plt-files-replace (make-parameter #f))
   (define plt-files-plt-relative? (make-parameter #f))
+  (define plt-files-plt-home-relative? (make-parameter #f))
   (define plt-setup-collections (make-parameter null))
   (define plt-include-compiled (make-parameter #f))
 
@@ -253,6 +254,9 @@
 	 ("Files in archive replace existing files when unpacked")]
 	[("--at-plt")
 	 ,(lambda (f) (plt-files-plt-relative? #t))
+	 ("Files/dirs in archive are relative to PLT add-ons directory")]
+	[("--all-users")
+	 ,(lambda (f) (plt-files-plt-home-relative? #t))
 	 ("Files/dirs in archive are relative to PLT installation directory")]
 	[("--include-compiled")
 	 ,(lambda (f) (plt-include-compiled #t))
@@ -443,12 +447,14 @@
 	       'file-replace
 	       'file)
 	   #f
-	   (plt-files-plt-relative?)
+	   (or (plt-files-plt-relative?)
+	       (plt-files-plt-home-relative?))
 	   ;; Get current version of mzscheme for require:
 	   (let ([i (get-info '("mzscheme"))])
 	     (let ([v (and i (i 'version (lambda () #f)))])
 	       (list (list '("mzscheme") v))))
-	   null)
+	   null
+	   (plt-files-plt-home-relative?))
      (printf " [output to \"~a\"]~n" (plt-output))]
     [(plt-collect)
      (pack-collections
@@ -469,6 +475,7 @@
 	  (lambda (path)
 	    (or (regexp-match #rx"compiled$" path)
 		(std-filter path)))
-	  std-filter))
+	  std-filter)
+      (plt-files-plt-home-relative?))
      (printf " [output to \"~a\"]~n" (plt-output))]
     [else (printf "bad mode: ~a~n" mode)]))
