@@ -7,6 +7,6 @@
 			 (require-library "sigload.ss" "compiler"))]
     [(compile-omit-files) 
      (list "sig.ss" "sigload.ss" "compile-plt.ss")]
-    [(mzscheme-launcher-libraries) (list "start.ss" "compile-plt.ss")]
-    [(mzscheme-launcher-names) (list "mzc" "Compile PLT")]
+    [(mzscheme-launcher-libraries) (list "start.ss" "setup.ss")]
+    [(mzscheme-launcher-names) (list "mzc" "Setup PLT")]
     [else (failure)]))
