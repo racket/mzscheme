@@ -133,13 +133,18 @@ static void range_check_one(char *name, char *which,
   if (bad1) {
     /* A mismatch exception requires one Scheme value, so we provide
        it before the printf string: */
+    char *args;
+    long argslen;
+
+    args = scheme_make_args_string("other ", startpos, argc, argv, &argslen);
     scheme_raise_exn(MZEXN_APPLICATION_MISMATCH,
 		     argv[startpos],
-		     "%s: %s index %s is not in the range [%d,%d]%s",
+		     "%s: %s index %s is not in the range [%d,%d]%t",
 		     name, which,
 		     scheme_make_provided_string(argv[startpos], 1, NULL),
 		     l, h,
-		     scheme_make_args_string("other ", startpos, argc, argv));
+		     args,
+		     argslen);
   }
 }
 
