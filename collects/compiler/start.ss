@@ -220,7 +220,7 @@
 	 (void))))
    (list "file or collection" "file or sub-collection")))
 
-(printf "MzScheme compiler (mzc) version ~a, Copyright (c) 1996-98 PLT~n"
+(printf "MzScheme compiler (mzc) version ~a, Copyright (c) 1996-99 PLT~n"
 	(version))
 
 (define-values (mode source-files prefix)
