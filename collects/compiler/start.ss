@@ -52,6 +52,7 @@
   (define plt-files-replace (make-parameter #f))
   (define plt-files-plt-relative? (make-parameter #f))
   (define plt-setup-collections (make-parameter null))
+  (define plt-include-compiled (make-parameter #f))
 
   ;; Returns (values mode files prefixes)
   ;;  where mode is 'compile, 'link, or 'zo
@@ -247,7 +248,10 @@
 	 ("Files in archive replace existing files when unpacked")]
 	[("--at-plt")
 	 ,(lambda (f) (plt-files-plt-relative? #t))
-	 ("Files/dirs in archive are relative to PLT installation directory")]]
+	 ("Files/dirs in archive are relative to PLT installation directory")]
+	[("--include-compiled")
+	 ,(lambda (f) (plt-include-compiled #t))
+	 ("Include \"compiled\" subdirectories in the archive")]]
        [multi
 	[("++setup")
 	 ,(lambda (f c) (plt-setup-collections
@@ -451,6 +455,11 @@
 		     (list sf)))))
 	   source-files)
       (plt-files-replace)
-      (map list (plt-setup-collections)))
+      (map list (plt-setup-collections))
+      (if (plt-include-compiled)
+	  (lambda (path)
+	    (or (regexp-match #rx"compiled$" path)
+		(std-filter path)))
+	  std-filter))
      (printf " [output to \"~a\"]~n" (plt-output))]
     [else (printf "bad mode: ~a~n" mode)]))
