@@ -84,12 +84,6 @@
       [("-v") 
        ,(lambda (f) (compiler:option:verbose #t))
        ("Verbose mode")]
-      [("--compiler") 
-       ,(lambda (f v) (current-extension-compiler v))
-       ("Use <compiler-path> as C compiler" "compiler-path")]
-      [("--linker") 
-       ,(lambda (f v) (current-extension-linker v))
-       ("Use <linker-path> as C linker" "linker-path")]
       [("--tool") 
        ,(lambda (f v) 
 	  (let ([v (string->symbol v)])
@@ -101,7 +95,10 @@
 			       (map (lambda (t)
 				      (list " " (symbol->string t)))
 				    (get-standard-compilers)))))
-	"tool")]]
+	"tool")]
+      [("--compiler") 
+       ,(lambda (f v) (current-extension-compiler v))
+       ("Use <compiler-path> as C compiler" "compiler-path")]]
      [multi
       [("--ccf-clear") 
        ,(lambda (f) (current-extension-compiler-flags null))
@@ -114,6 +111,22 @@
        ,(lambda (f v) (current-extension-compiler-flags
 		       (remove v (current-extension-compiler-flags))))
        ("Remove C compiler flag (allowed multiple times)" "flag")]]
+     [once-each
+      [("--linker") 
+       ,(lambda (f v) (current-extension-linker v))
+       ("Use <linker-path> as C linker" "linker-path")]]
+     [multi
+      [("--ldf-clear") 
+       ,(lambda (f) (current-extension-linker-flags null))
+       ("Clear C linker flags (allowed multiple times)")]
+      [("++ldf") 
+       ,(lambda (f v) (current-extension-linker-flags
+		       (cons v (current-extension-linker-flags))))
+       ("Add C linker flag (allowed multiple times)" "flag")]
+      [("--ldf") 
+       ,(lambda (f v) (current-extension-linker-flags
+		       (remove v (current-extension-linker-flags))))
+       ("Remove C linker flag (allowed multiple times)" "flag")]]
      [once-any
       [("-a" "--mrspidey")
        ,(lambda (f) 
@@ -149,39 +162,7 @@
       [("--stupid")
        ,(lambda (f) (compiler:option:stupid #t))
        ("Compile despite obvious non-syntactic errors")]]
-     [once-any
-      [("--va")
-       ,(lambda (f) (compiler:option:vehicles 'vehicles:automatic))
-       ("Try to optimize function vehicle selection during compilation (default)")]
-      [("--vm") 
-       ,(lambda (f v) 
-	  (unless (string->number v)
-	      (error 'mzc "monolith argument must be a number"))
-	  (let ([num (string->number v)])
-	    (unless (and (integer? num)
-			 (positive? num)
-			 (<= num max-monoliths))
-		    (error 'mzc:compile "monoliths must be a number between 1 and ~a"
-			   max-monoliths))
-	    (compiler:option:monoliths num)))
-       ("Use <n> monolithic vehicles during compilation" "n")]
-      [("--vf")
-       ,(lambda (f) (compiler:option:vehicles 'vehicles:function))
-       ("Use per-function vehicles during compilation")]
-      [("--vu")
-       ,(lambda (f) (compiler:option:vehicles 'vehicles:unit))
-       ("Use per-unit vehicles during compilation")]]
      [once-each
-      [("--seed") 
-       ,(lambda (f v) 
-	  (unless (string->number v)
-		  (error 'mzc "random number seed must be a number"))
-	  (let ([num (string->number v)])
-	    (unless (and (integer? num)
-			 (< (abs num) (expt 2 30)))
-		    (error 'mzc "random number seed must be a smallish number"))
-	    (compiler:option:seed num)))
-       ("Seed monolith randomizer (with --vm)" "seed")]
       [("-n" "--name") 
        ,(lambda (f name) (compiler:option:setup-prefix name))
        ("Embed <name> as an extra part of public low-level names" "name")]
@@ -254,7 +235,7 @@
    (require-library "compile.ss" "dynext")
    (require-library "link.ss" "dynext")
    (extract-base-filename/ext (ld-output) 'mzc)
-   (for-each (lambda (file) (extract-base-filename/o file 'mzc)) source-files)
+   ; (for-each (lambda (file) (extract-base-filename/o file 'mzc)) source-files)
    (let ([dest (if (dest-dir)
 		   (build-path (dest-dir) (ld-output))
 		   (ld-output))])
