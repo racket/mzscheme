@@ -284,8 +284,8 @@
 	      (car l)))
 	(cons file files) 
 	`(begin
-	   (import mzscheme)
-	   (import-for-syntax mzscheme)
+	   ,(if (compiler:option:assume-primitives) '(require mzscheme) '(void))
+	   (require-for-syntax mzscheme)
 	   ,@(map (lambda (s) `(load ,s)) (filter string? accum))
 	   (void))))
      (list "file or collection" "file or sub-collection")))
