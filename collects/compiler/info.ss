@@ -6,5 +6,5 @@
 			 (require-library "refer.ss")
 			 (require-library "sigload.ss" "compiler"))]
     [(compile-omit-files) 
-     (list "sig.ss" "sigload.ss")]
+     (list "sig.ss" "sigload.ss" "compile-plt.ss")]
     [else (failure)]))
