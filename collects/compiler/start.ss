@@ -21,15 +21,15 @@
 
   (error-print-width 512)
 
-  (import (prefix compiler:option: "option.ss"))
-  (import "compiler.ss")
+  (require (prefix compiler:option: "option.ss"))
+  (require "compiler.ss")
 
   ;; Read argv array for arguments and input file name
-  (import (lib "cmdline.ss")
-	  (lib "list.ss")
-	  (lib "file.ss" "dynext")
-	  (lib "compile.ss" "dynext")
-	  (lib "link.ss" "dynext"))
+  (require (lib "cmdline.ss")
+	   (lib "list.ss")
+	   (lib "file.ss" "dynext")
+	   (lib "compile.ss" "dynext")
+	   (lib "link.ss" "dynext"))
 
   (define dest-dir (make-parameter #f))
 
@@ -294,7 +294,7 @@
 	  (version))
 
   (define-values (mode source-files prefix)
-    (parse-options (global-defined-value 'argv)))
+    (parse-options (namespace-variable-binding 'argv)))
 
   (define (never-embedded action)
     (when (compiler:option:compile-for-embedded)
