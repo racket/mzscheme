@@ -426,6 +426,10 @@
      (printf " [output to \"~a\"]~n" (plt-output))]
     [(plt-collect)
      (pack-collections
+      (plt-output)
+      (if (eq? default-plt-name (plt-name))
+	  #f
+	  (plt-name))
       (map (lambda (sf)
 	     (let loop ([sf sf])
 	       (let ([m (regexp-match "^([^/]*)/(.*)$" sf)])
@@ -433,10 +437,6 @@
 		     (cons (cadr m) (loop (caddr m)))
 		     (list sf)))))
 	   source-files)
-      (plt-output)
-      (if (eq? default-plt-name (plt-name))
-	  #f
-	  (plt-name))
       (plt-files-replace)
       (map list (plt-setup-collections)))
      (printf " [output to \"~a\"]~n" (plt-output))]
