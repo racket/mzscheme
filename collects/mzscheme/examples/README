@@ -1,6 +1,6 @@
-This directory contains a few example MzScheme extensions. Most are
-implemented directly in C. A few that are listed at the end use the
-mzc `c-lambda', etc. forms.
+This directory contains a few example MzScheme extensions. Most
+examples are implemented directly in C. A few examples listed at the
+end use the mzc `c-lambda', etc. forms.
 
  * hello.c - returns the string "Hello, World!". Demonstrates creating
    a Scheme value.
@@ -35,8 +35,11 @@ mzc `c-lambda', etc. forms.
    world.
 
 
- * fmod-ez.c - same as fmod.c, but implemented with `c-lambda'.
+ * fmod-ez.ss - same as fmod.c, but implemented with `c-lambda'.
+
+ * cfile.ss - simple (and unsafe) glue to the fopen(), fread(),
+   fwrite(), and fclose() C library functions.
 
  * msgbox.ss - a Windows-only example, provides a `message-box'
-   procedure.
-
+   procedure. Demonstrates some of the limitations of `c-lambda' and
+   how to work around them.
