@@ -6,16 +6,15 @@
       [(name) "mzc"]
       [(compile-prefix) `(begin
 			   (require-library "refer.ss")
-			   (require-library "setupsig.ss" "compiler")
 			   ,(if spidey?
 				`(require-library "spsigload.ss" "compiler")
 				`(require-library "sigload.ss" "compiler")))]
       [(compile-omit-files) 
-       (list* "sig.ss" "sigload.ss" "spsigload.ss" "setup.ss" "setupsig.ss"
+       (list* "sig.ss" "sigload.ss" "spsigload.ss"
 	      (if spidey?
 		  null
 		  (list "sploadr.ss" "mrspideyi.ss" "mrspidey.ss")))]
-      [(compile-elaboration-zos) (list "sig.ss" "sigload.ss" "setupsig.ss")]
-      [(mzscheme-launcher-libraries) (list "start.ss" "setup.ss")]
-      [(mzscheme-launcher-names) (list "mzc" "Setup PLT")]
+      [(compile-elaboration-zos) (list "sig.ss" "sigload.ss")]
+      [(mzscheme-launcher-libraries) (list "start.ss")]
+      [(mzscheme-launcher-names) (list "mzc")]
       [else (failure)])))
