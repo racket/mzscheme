@@ -51,7 +51,9 @@
   (parse-command-line
    "mzc"
    argv
-   `([once-any
+   `([help-labels
+      "-------------------------------- mode flags ---------------------------------"]
+     [once-any
       [("-e" "--extension")
        ,(lambda (f) 'compile)
        (,(format "Output ~a file(s) from Scheme source(s) (default)" (append-extension-suffix "")))]
@@ -116,9 +118,12 @@
 		  (error 'mzc "the destination directory does not exist: ~s" d))
 	  (dest-dir d))
        ("Output -e/-c/-o/-l/-g/-z file(s) to <dir>" "dir")]
-      [("-v") 
-       ,(lambda (f) (compiler:option:verbose #t))
-       ("Verbose mode")]
+      [("-n" "--name") 
+       ,(lambda (f name) (compiler:option:setup-prefix name))
+       ("Use <name> as extra part of public low-level names" "name")]]
+     [help-labels
+      "------------------- compiler/linker configuration flags ---------------------"]
+     [once-each
       [("--tool") 
        ,(lambda (f v) 
 	  (let ([v (string->symbol v)])
@@ -172,6 +177,8 @@
        ,(lambda (f) 
 	  (printf "C linker flags: ~s~n" (current-extension-linker-flags)))
        ("Show C linker flags")]]
+     [help-labels
+      "-------------------- .zo compiler configuration flags -----------------------"]
      [multi
       [("++zof") 
        ,(lambda (f v) (compiler:option:zo-compiler-flags
@@ -189,6 +196,8 @@
        ,(lambda (f) 
 	  (printf ".zo compiler flags: ~s~n" (compiler:option:zo-compiler-flags)))
        ("Show .zo compiler flags")]]
+     [help-labels
+      "--------------------- executable configuration flags ------------------------"]
      [multi
       [("++exf") 
        ,(lambda (f v) (exe-embedded-flags
@@ -206,6 +215,8 @@
        ,(lambda (f) 
 	  (printf "Flags to embed: ~s~n" (exe-embedded-flags)))
        ("Show flag to embed in --[gui-]exe executable")]]
+     [help-labels
+      "----------------------- compiler optimization flags -------------------------"]
      [once-any
       [("-a" "--mrspidey")
        ,(lambda (f) 
@@ -253,10 +264,12 @@
       [("--unsafe-fixnum-arithmetic")
        ,(lambda (f) (compiler:option:fixnum-arithmetic #t))
        ("Assume fixnum arithmetic yields a fixnum")]]
+     [help-labels
+      "-------------------------- miscellaneous flags ------------------------------"]
      [once-each
-      [("-n" "--name") 
-       ,(lambda (f name) (compiler:option:setup-prefix name))
-       ("Use <name> as extra part of public low-level names" "name")]
+      [("-v") 
+       ,(lambda (f) (compiler:option:verbose #t))
+       ("Verbose mode")]
       [("--save-temps")
        ,(lambda (f) (compiler:option:clean-intermediate-files #f))
        ("Keep intermediate files")]
