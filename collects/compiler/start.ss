@@ -223,6 +223,7 @@
        ("Show flag to embed in --[gui-]exe executable")]]
      [help-labels
       "----------------------- compiler optimization flags -------------------------"]
+#|
      [once-any
       [("-a" "--mrspidey")
        ,(lambda (f) 
@@ -238,6 +239,7 @@
 	    (collection-path "mrspidey"))
 	  (compiler:option:use-mrspidey-for-units #t))
        ("Analyze top-level units with MrSpidey")]]
+|#
      [once-each
       [("--no-prop")
        ,(lambda (f) (compiler:option:propagate-constants #f))
