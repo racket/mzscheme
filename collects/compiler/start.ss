@@ -83,9 +83,24 @@
       [("-v") 
        ,(lambda (f) (compiler:option:verbose #t))
        ("Verbose mode")]
-      [("--cc") 
+      [("--compiler") 
        ,(lambda (f v) (current-extension-compiler v))
-       ("Use <compiler> as C compiler" "compiler")]]
+       ("Use <compiler-path> as C compiler" "compiler-path")]
+      [("--linker") 
+       ,(lambda (f v) (current-extension-linker v))
+       ("Use <linker-path> as C linker" "linker-path")]
+      [("--tool") 
+       ,(lambda (f v) 
+	  (let ([v (string->symbol v)])
+	    (use-standard-compiler v)
+	    (use-standard-linker v)))
+       (,(format "Use pre-defined <tool> as C compiler/linker:~a" 
+		 (apply string-append
+			(apply append
+			       (map (lambda (t)
+				      (list " " (symbol->string t)))
+				    (get-standard-compilers)))))
+	"tool")]]
      [multi
       [("--ccf-clear") 
        ,(lambda (f) (current-extension-compiler-flags null))
