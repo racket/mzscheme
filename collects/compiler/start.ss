@@ -443,7 +443,7 @@
 		  (format
 		   "#%mzc:~a"
 		   (let-values ([(base name dir?) (split-path (car source-files))])
-		     (regexp-replace "[.].?.?.?$" name "")))))
+		     (path->bytes (path-replace-suffix name #""))))))
       (let ([flags (exe-embedded-flags)])
 	(if (eq? mode 'gui-exe) 
 	    (cons "-Z" flags)
