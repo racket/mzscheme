@@ -199,25 +199,6 @@
 	    (printf "C linker flags: ~s~n" (current-extension-linker-flags)))
 	 ("Show C linker flags")]]
        [help-labels
-	"-------------------- .zo compiler configuration flags -----------------------"]
-       [multi
-	[("++zof") 
-	 ,(lambda (f v) (compiler:option:zo-compiler-flags
-			 (append (compiler:option:zo-compiler-flags)
-				 (list (string->symbol v)))))
-	 ("Add .zo compiler flag (see `compile-file' docs)" "flag")]
-	[("--zof") 
-	 ,(lambda (f v) (compiler:option:zo-compiler-flags
-			 (remove (string->symbol v) (compiler:option:zo-compiler-flags))))
-	 ("Remove .zo compiler flag" "flag")]
-	[("--zof-clear") 
-	 ,(lambda (f) (compiler:option:zo-compiler-flags null))
-	 ("Clear .zo compiler flags")]
-	[("--zof-show") 
-	 ,(lambda (f) 
-	    (printf ".zo compiler flags: ~s~n" (compiler:option:zo-compiler-flags)))
-	 ("Show .zo compiler flags")]]
-       [help-labels
 	"--------------------- executable configuration flags ------------------------"]
        [multi
 	[("++lib")
