@@ -42,6 +42,8 @@
 
 (define ld-output (make-parameter #f))
 
+(define exe-output (make-parameter #f))
+
 ; Returns (values mode files prefixes)
 ;  where mode is 'compile, 'link, or 'zo
 (define (parse-options argv)
@@ -54,10 +56,10 @@
        (,(format "Output ~a file(s) from Scheme source(s) (default)" (append-extension-suffix "")))]
       [("-c" "--c-source")
        ,(lambda (f) 'compile-c)
-       (,(format "Output only ~a file(s) from Scheme source(s)" (append-c-suffix "")))]
+       (,(format "Output ~a file(s) from Scheme source(s)" (append-c-suffix "")))]
       [("-o" "--object")
        ,(lambda (f) 'compile-o)
-       (,(format "Output ~a and ~a files from Scheme source(s) for a multi-file extension" 
+       (,(format "Output ~a/~a from Scheme source(s) for a multi-file extension" 
 		 (append-object-suffix "")
 		 (append-constant-pool-suffix "")))]
       [("-l" "--link-extension")
@@ -89,6 +91,16 @@
        (,(format "Link arbitrary file(s) to create <extension>: ~a -> ~a" 
 		 (append-object-suffix "")
 		 (append-extension-suffix ""))
+	,"extension")]
+      [("--exe")
+       ,(lambda (f name) (exe-output name) 'exe)
+       (,(format "Embed Scheme source(s)/~a in MzScheme to create <exe>" 
+		 (append-zo-suffix ""))
+	,"extension")]
+      [("--gui-exe")
+       ,(lambda (f name) (exe-output name) 'gui-exe)
+       (,(format "Embed Scheme source(s)/~a in MrEd to create <exe>" 
+		 (append-zo-suffix ""))
 	,"extension")]]
      [once-each
       [("--embedded")
@@ -133,7 +145,11 @@
       [("--ccf") 
        ,(lambda (f v) (current-extension-compiler-flags
 		       (remove v (current-extension-compiler-flags))))
-       ("Remove C compiler flag" "flag")]]
+       ("Remove C compiler flag" "flag")]
+      [("--ccf-show") 
+       ,(lambda (f) 
+	  (printf "C compiler flags: ~s~n" (current-extension-compiler-flags)))
+       ("Show C compiler flags")]]
      [once-each
       [("--linker") 
        ,(lambda (f v) (current-extension-linker v))
@@ -150,20 +166,28 @@
       [("--ldf") 
        ,(lambda (f v) (current-extension-linker-flags
 		       (remove v (current-extension-linker-flags))))
-       ("Remove C linker flag" "flag")]]
+       ("Remove C linker flag" "flag")]
+      [("--ldf-show") 
+       ,(lambda (f) 
+	  (printf "C linker flags: ~s~n" (current-extension-linker-flags)))
+       ("Show C linker flags")]]
      [multi
       [("--zof-clear") 
-       ,(lambda (f) (zo-compile-flags null))
+       ,(lambda (f) (compiler:option:zo-compiler-flags null))
        ("Clear .zo compiler flags")]
       [("++zof") 
-       ,(lambda (f v) (zo-compile-flags
-		       (append (zo-compile-flags)
+       ,(lambda (f v) (compiler:option:zo-compiler-flags
+		       (append (compiler:option:zo-compiler-flags)
 			       (list (string->symbol v)))))
        ("Add .zo compiler flag" "flag")]
       [("--zof") 
        ,(lambda (f v) (zo-compile-flags
-		       (remove (string->symbol v) (zo-compile-flags))))
-       ("Remove .zo compiler flag" "flag")]]
+		       (remove (string->symbol v) (compiler:option:zo-compiler-flags))))
+       ("Remove .zo compiler flag" "flag")]
+      [("--zof-show") 
+       ,(lambda (f) 
+	  (printf ".zo compiler flags: ~s~n" (compiler:option:zo-compiler-flags)))
+       ("Show .zo compiler flags")]]
      [once-any
       [("-a" "--mrspidey")
        ,(lambda (f) 
@@ -204,17 +228,17 @@
        ("Compile despite obvious non-syntactic errors")]
       [("--unsafe-disable-interrupts")
        ,(lambda (f) (compiler:option:disable-interrupts #t))
-       ("UNSAFE: Disable threads and breaking, crash on stack overflow")]
+       ("Ignore threads, breaks, and stack overflow")]
       [("--unsafe-skip-tests")
        ,(lambda (f) (compiler:option:unsafe #t))
-       ("UNSAFE: Skip run-time tests for some primitive operations")]
+       ("Skip run-time tests for some primitive operations")]
       [("--unsafe-fixnum-arithmetic")
        ,(lambda (f) (compiler:option:fixnum-arithmetic #t))
-       ("UNSAFE: Assume fixnum arithmetic yields a fixnum")]]
+       ("Assume fixnum arithmetic yields a fixnum")]]
      [once-each
       [("-n" "--name") 
        ,(lambda (f name) (compiler:option:setup-prefix name))
-       ("Embed <name> as an extra part of public low-level names" "name")]
+       ("Use <name> as extra part of public low-level names" "name")]
       [("--dirty")
        ,(lambda (f) (compiler:option:clean-intermediate-files #f))
        ("Don't remove intermediate files")]
@@ -233,7 +257,7 @@
 	 (void))))
    (list "file or collection" "file or sub-collection")))
 
-(printf "MzScheme compiler (mzc) version ~a, Copyright (c) 1996-99 PLT~n"
+(printf "MzScheme compiler (mzc) version ~a, Copyright (c) 1996-2000 PLT~n"
 	(version))
 
 (define-values (mode source-files prefix)
@@ -295,6 +319,10 @@
 		     source-files
 		     dest)
      (printf " [output to \"~a\"]~n" dest))]
+  [(exe gui-exe)
+   (require-library "embed.ss" "compiler")
+   (make-embedding-executable (exe-output) (eq? mode 'gui-exe) 
+			      source-files '("-mvq-"))]
   [else (printf "bad mode: ~a~n" mode)])
 
 (define (output-profile-results paths? sort-time?)
