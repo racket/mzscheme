@@ -7,6 +7,13 @@
 ;; If you are interested Scheme->C part of mzc, look in
 ;;  driver.ss, which is the `main' file for the compiler.
 
+;; Different compilation modes are driven by dynamically
+;;  linking in appropriate libraries. This is handled
+;;  by compiler.ss.
+
+;; See doc.txt for information about the Scheme-level interface
+;;  provided by this collection.
+
 ; (require-library "traceld.ss")
 
 ; On error, exit with -1 status code
