@@ -32,12 +32,15 @@
 	   (lib "link.ss" "dynext"))
 
   (define dest-dir (make-parameter #f))
+  (define auto-dest-dir (make-parameter #f))
 
   (define ld-output (make-parameter #f))
 
   (define exe-output (make-parameter #f))
   (define exe-embedded-flags (make-parameter '("-mvq-")))
   (define exe-embedded-libraries (make-parameter null))
+
+  (define module-mode (make-parameter #f))
 
   ;; Returns (values mode files prefixes)
   ;;  where mode is 'compile, 'link, or 'zo
@@ -66,7 +69,7 @@
 		   (append-constant-pool-suffix "")
 		   (append-extension-suffix "")))]
 	[("-g" "--link-glue")
-	 ,(lambda (f) 'glue)
+	 ,(lambda (f) 'link-glue)
 	 (,(format "Create the ~a glue for --link-extension, but do not link"
 		   (append-object-suffix "")))]
 	[("-z" "--zo")
@@ -98,21 +101,31 @@
 	 (,(format "Embed module in MrEd to create <exe>")
 	  ,"exe")]]
        [once-each
+	[("-m" "--module")
+	 ,(lambda (f) (module-mode #t))
+	 ("Skip eval of top-level syntax, etc. for -e/-c/-o/-z")]
 	[("--embedded")
 	 ,(lambda (f) (compiler:option:compile-for-embedded #t))
 	 ("Compile for embedded run-time engine, with -c/-o/-g")]
 	[("-p" "--prefix") 
 	 ,(lambda (f v) v)
 	 ("Add elaboration-time prefix file for -e/-c/-o/-z" "file")]
+	[("-n" "--name") 
+	 ,(lambda (f name) (compiler:option:setup-prefix name))
+	 ("Use <name> as extra part of public low-level names" "name")]]
+       [once-any
 	[("-d" "--destination") 
 	 ,(lambda (f d)
 	    (unless (directory-exists? d)
 	      (error 'mzc "the destination directory does not exist: ~s" d))
 	    (dest-dir d))
 	 ("Output -e/-c/-o/-l/-g/-z file(s) to <dir>" "dir")]
-	[("-n" "--name") 
-	 ,(lambda (f name) (compiler:option:setup-prefix name))
-	 ("Use <name> as extra part of public low-level names" "name")]]
+	[("--auto-dir")
+	 ,(lambda (f)
+	    (auto-dest-dir #t))
+	 (,(format "Output -z to \"compiled\", -e to ~s"
+		   (build-path "compiled" "native" (system-library-subpath))))]]
+
        [help-labels
 	"------------------- compiler/linker configuration flags ---------------------"]
        [once-each
@@ -231,7 +244,7 @@
 	 ("Set the maximum inlining size" "size")]
 	[("--prim")
 	 ,(lambda (f) (compiler:option:assume-primitives #t))
-	 ("Assume primitives (e.g., treat `car' as `#%car')")]
+	 ("Assume primitive bindings at top-level")]
 	[("--stupid")
 	 ,(lambda (f) (compiler:option:stupid #t))
 	 ("Compile despite obvious non-syntactic errors")]
@@ -257,18 +270,30 @@
 	 ,(lambda (f) (compiler:option:debug #t))
 	 ("Write debugging output to dump.txt")]])
      (lambda (accum file . files)
-       (values 
-	(let ([l (filter symbol? accum)])
-	  (if (null? l)
-	      'compile
-	      (car l)))
-	(cons file files) 
-	`(begin
-	   ,(if (compiler:option:assume-primitives) '(require mzscheme) '(void))
-	   (require (lib "cffi.ss" "compiler"))
-	   (require-for-syntax mzscheme)
-	   ,@(map (lambda (s) `(load ,s)) (filter string? accum))
-	   (void))))
+       (let ([mode (let ([l (filter symbol? accum)])
+		     (if (null? l)
+			 'compile
+			 (car l)))])
+	 (values 
+	  mode
+	  (cons file files)
+	  (let ([prefixes (filter string? accum)])
+	    (unless (memq mode '(compile compile-c compile-o zo))
+	      (unless (null? prefixes)
+		(error 'mzc "prefix files are not useful in ~a mode" mode)))
+	    (if (module-mode)
+		(begin
+		  (when (compiler:option:assume-primitives)
+		    (error 'mzc "--prim is not useful with -m or --module"))
+		  (unless (null? prefixes)
+		    (error 'mzc "prefix files not allowed with -m or --module"))
+		  #f)
+		`(begin
+		   ,(if (compiler:option:assume-primitives) '(require mzscheme) '(void))
+		   (require (lib "cffi.ss" "compiler"))
+		   (require-for-syntax mzscheme)
+		   ,@(map (lambda (s) `(load ,s)) prefixes)
+		   (void)))))))
      (list "file or collection" "file or sub-collection")))
 
   (printf "MzScheme compiler (mzc) version ~a, Copyright (c) 1996-2001 PLT~n"
@@ -277,6 +302,10 @@
   (define-values (mode source-files prefix)
     (parse-options (namespace-variable-binding 'argv)))
 
+  (when (auto-dest-dir)
+    (unless (memq mode '(zo compile))
+      (error 'mzc "--auto-dir works only with -z, --zo, -e, or --extension (or default mode)")))
+
   (define (never-embedded action)
     (when (compiler:option:compile-for-embedded)
       (error 'mzc "cannot ~a an extension for an embedded MzScheme" action)))
@@ -284,7 +313,9 @@
   (case mode
     [(compile)
      (never-embedded "compile")
-     ((compile-extensions prefix) source-files (dest-dir))]
+     ((compile-extensions prefix) source-files (if (auto-dest-dir)
+						   'auto
+						   (dest-dir)))]
     [(compile-c)
      ((compile-extensions-to-c prefix) source-files (dest-dir))]
     [(compile-o)
@@ -292,10 +323,12 @@
     [(link)
      (never-embedded "link")
      (link-extension-parts source-files (or (dest-dir) (current-directory)))]
-    [(glue)
+    [(link-glue)
      (glue-extension-parts source-files (or (dest-dir) (current-directory)))]
     [(zo)
-     ((compile-zos prefix) source-files (dest-dir))]
+     ((compile-zos prefix) source-files (if (auto-dest-dir)
+					    'auto
+					    (dest-dir)))]
     [(collection-extension)
      (apply compile-collection-extension source-files)]
     [(collection-zos)
