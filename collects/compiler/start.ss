@@ -5,6 +5,7 @@
 (error-escape-handler (lambda () (exit -1)))
 
 (read-case-sensitive #t)
+(error-print-width 512)
 
 (require-library "option.ss" "compiler")
 
@@ -132,6 +133,16 @@
       [("--no-prop")
        ,(lambda (f) (compiler:option:propagate-constants #f))
        ("Don't propogate constants")]
+      [("--inline")
+       ,(lambda (f d) (compiler:option:max-inline-size 
+		       (with-handlers ([void
+					(lambda (x)
+					  (error 'mzc "bad size for --inline: ~a" d))])
+			 (let ([v (string->number d)])
+			   (unless (and (not (negative? v)) (exact? v) (real? v))
+			     (error 'bad))
+			   v))))
+       ("Set the maximum inlining size" "size")]
       [("--prim")
        ,(lambda (f) (compiler:option:assume-primitives #t))
        ("Assume primitives (e.g., treat `car' as `#%car')")]
