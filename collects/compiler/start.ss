@@ -29,7 +29,8 @@
 	   (lib "list.ss")
 	   (lib "file.ss" "dynext")
 	   (lib "compile.ss" "dynext")
-	   (lib "link.ss" "dynext"))
+	   (lib "link.ss" "dynext")
+	   (lib "pack.ss" "setup"))
 
   (define dest-dir (make-parameter #f))
   (define auto-dest-dir (make-parameter #f))
@@ -41,6 +42,11 @@
   (define exe-embedded-libraries (make-parameter null))
 
   (define module-mode (make-parameter #f))
+
+  (define plt-output (make-parameter #f))
+  (define plt-name (make-parameter "archive"))
+  (define plt-files-replace (make-parameter #f))
+  (define plt-setup-collections (make-parameter null))
 
   ;; Returns (values mode files prefixes)
   ;;  where mode is 'compile, 'link, or 'zo
@@ -91,15 +97,19 @@
 	 (,(format "Link arbitrary file(s) to create <extension>: ~a -> ~a" 
 		   (append-object-suffix "")
 		   (append-extension-suffix ""))
-	  ,"extension")]
+	  "extension")]
 	[("--exe")
 	 ,(lambda (f name) (exe-output name) 'exe)
 	 (,(format "Embed module in MzScheme to create <exe>")
-	  ,"exe")]
+	  "exe")]
 	[("--gui-exe")
 	 ,(lambda (f name) (exe-output name) 'gui-exe)
 	 (,(format "Embed module in MrEd to create <exe>")
-	  ,"exe")]]
+	  "exe")]
+	[("--plt")
+	 ,(lambda (f name) (plt-output name) 'plt)
+	 (,(format "Create .plt <archive> with files/dirs relative to PLTHOME")
+	  "archive")]]
        [once-each
 	[("-m" "--module")
 	 ,(lambda (f) (module-mode #t))
@@ -226,6 +236,21 @@
 	    (printf "Flags to embed: ~s~n" (exe-embedded-flags)))
 	 ("Show flag to embed in --[gui-]exe executable")]]
        [help-labels
+	"----------------------------- .plt archive flags ----------------------------"]
+       [once-each
+	[("--plt-name")
+	 ,(lambda (f n) (plt-name n))
+	 ("Set the printed <name> describing the archive" "name")]
+	[("--replace")
+	 ,(lambda (f) (plt-files-replace #t))
+	 ("Files in archive replace existing files when unpacked")]]
+       [multi
+	[("++setup")
+	 ,(lambda (f c) (plt-setup-collections
+			 (append (plt-setup-collections)
+				 (list c))))
+	 ("Setup <collect> after the archive is unpacked" "collect")]]
+       [help-labels
 	"----------------------- compiler optimization flags -------------------------"]
 
        [once-each
@@ -294,7 +319,7 @@
 		   (require-for-syntax mzscheme)
 		   ,@(map (lambda (s) `(load ,s)) prefixes)
 		   (void)))))))
-     (list "file or collection" "file or sub-collection")))
+     (list "file/directory/collection" "file/directory/sub-collection")))
 
   (printf "MzScheme compiler (mzc) version ~a, Copyright (c) 1996-2001 PLT~n"
 	  (version))
@@ -384,4 +409,13 @@
 	    (cons "-Z" flags)
 	    flags)))
      (printf " [output to \"~a\"]~n" (exe-output))]
+    [(plt)
+     (pack (plt-output) (plt-name)
+	   source-files
+	   (map list (plt-setup-collections))
+	   std-filter #t 
+	   (if (plt-files-replace)
+	       'file-replace
+	       'file))
+       (printf " [output to \"~a\"]~n" (plt-output))]
     [else (printf "bad mode: ~a~n" mode)]))
