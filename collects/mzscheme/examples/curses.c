@@ -122,3 +122,9 @@ Scheme_Object *scheme_initialize(Scheme_Env *env)
   /* Then do the usual stuff: */
   return scheme_reload(env);
 }
+
+Scheme_Object *scheme_module_name()
+{
+  /* This extension doesn't define a module: */
+  return scheme_false;
+}

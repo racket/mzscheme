@@ -27,6 +27,10 @@ end use the mzc `c-lambda', etc. forms.
    allocation, fancy integer type checking, general exception raising,
    and registering static variables.
 
+ * idmodule.c - Declares the module named `idmodule' that provides an
+   `identity' function. Demonstrates implementing a primitive module
+   in C.
+
  * helloprint.c - prints "Hello, World!" directly to the current
    output port rather than relying on the read-eval-print-loop.
    Demonstrates using built-in Scheme parameter values from C.

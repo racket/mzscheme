@@ -55,5 +55,12 @@ Scheme_Object *scheme_reload(Scheme_Env *env)
 
 Scheme_Object *scheme_initialize(Scheme_Env *env)
 {
+  /* First load is same as every load: */
   return scheme_reload(env);
+}
+
+Scheme_Object *scheme_module_name()
+{
+  /* This extension doesn't define a module: */
+  return scheme_false;
 }
