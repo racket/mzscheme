@@ -6,4 +6,4 @@
   (define mzscheme-launcher-names (list "mzc"))
 
   (define compile-omit-files
-    '("mrspidey.ss")))
+    '("mrspidey.ss" "mrspideyf.ss" "mrspideyi.ss" "embedr.ss")))
