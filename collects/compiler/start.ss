@@ -167,7 +167,7 @@
      [once-each
       [("--no-prop")
        ,(lambda (f) (compiler:option:propagate-constants #f))
-       ("Don't propogate constants")]
+       ("Don't propagate constants")]
       [("--lite")
        ,(lambda (f) (compiler:option:lightweight #t))
        ("Enable lightweight closure conversion")]
