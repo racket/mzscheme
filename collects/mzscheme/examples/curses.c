@@ -76,37 +76,33 @@ static Scheme_Object *sch_refresh(int argc, Scheme_Object **argv)
 
 Scheme_Object *scheme_reload(Scheme_Env *env)
 {
-  scheme_add_global("clear",
-		    scheme_make_prim_w_arity(sch_clear, 
-					     "clear", 
-					     0, 0),
-		    env);
-  scheme_add_global("put",
-		    scheme_make_prim_w_arity(sch_put, 
-					     "put", 
-					     1, 1),
-		    env);
-  scheme_add_global("get",
-		    scheme_make_prim_w_arity(sch_get, 
-					     "get", 
-					     0, 0),
-		    env);
-  scheme_add_global("move",
-		    scheme_make_prim_w_arity(sch_move, 
-					     "move", 
-					     2, 2),
-		    env);
-  scheme_add_global("get-size",
-		    scheme_make_prim_w_arity(sch_get_size, 
-					     "get-size", 
-					     0, 0),
-		    env);
+  /* The MZ_GC... lines are for for 3m, because env is live across an
+     allocating call. They're not needed for plain old (conservatively
+     collected) Mzscheme. See makeadder3m.c for more info. */
+  Scheme_Object *v;
+  MZ_GC_DECL_REG(1);
+  MZ_GC_VAR_IN_REG(0, env);
+  MZ_GC_REG();
 
-  scheme_add_global("refresh",
-		    scheme_make_prim_w_arity(sch_refresh,
-					     "refresh", 
-					     0, 0),
-		    env);
+  v = scheme_make_prim_w_arity(sch_clear, "clear", 0, 0),
+  scheme_add_global("clear", v, env);
+
+  v = scheme_make_prim_w_arity(sch_put, "put", 1, 1);
+  scheme_add_global("put", v, env);
+
+  v = scheme_make_prim_w_arity(sch_get, "get", 0, 0);
+  scheme_add_global("get", v, env);
+
+  v = scheme_make_prim_w_arity(sch_move, "move", 2, 2);
+  scheme_add_global("move", v, env);
+
+  v = scheme_make_prim_w_arity(sch_get_size, "get-size", 0, 0);
+  scheme_add_global("get-size", v, env);
+
+  v = scheme_make_prim_w_arity(sch_refresh, "refresh", 0, 0);
+  scheme_add_global("refresh", v, env);
+
+  MZ_GC_UNREG();
 
   return scheme_void;
 }

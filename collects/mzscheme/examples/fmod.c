@@ -40,15 +40,25 @@ static Scheme_Object *sch_fmod(int argc, Scheme_Object **argv)
 
 Scheme_Object *scheme_reload(Scheme_Env *env)
 {
+  Scheme_Object *proc;
+
+  /* The MZ_GC... lines are for for 3m, because env is live across an
+     allocating call. They're not needed for plain old (conservatively
+     collected) Mzscheme. See makeadder3m.c for more info. */
+  MZ_GC_DECL_REG(1);
+  MZ_GC_VAR_IN_REG(0, env);
+  MZ_GC_REG();
+
   /* Package the C implementation of fmod into a Scheme procedure
      value: */
-  Scheme_Object *proc;
   proc = scheme_make_prim_w_arity(sch_fmod, "fmod", 2, 2);
   /*               Requires at least two args ------^  ^ */
   /*                  Accepts no more than two args ---| */
 
   /* Define `fmod' as a global :*/
   scheme_add_global("fmod", proc, env);
+
+  MZ_GC_UNREG();
 
   return scheme_void;
 }
