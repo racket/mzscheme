@@ -1,4 +1,11 @@
 
+
+(module info (lib "infotab.ss" "setup")
+  (define name "mzc")
+
+  (define compile-omit-files
+    '("
+
 (let ([spidey? (with-handlers ([void (lambda (x) #f)])
 		 (collection-path "mrspidey"))])
   (lambda (request failure)
