@@ -85,7 +85,11 @@
        ("Remove C compiler flag (allowed multiple times)" "flag")]]
      [once-each
       [("-a" "--mrspidey")
-       ,(lambda (f) (compiler:option:use-mrspidey #t))
+       ,(lambda (f) 
+	  (with-handlers ([void (lambda (x)
+				  (error 'mzc "MrSpidey is not installed"))])
+	    (collection-path "mrspidey"))
+	  (compiler:option:use-mrspidey #t))
        ("Analyze with MrSpidey")]
       [("--no-prop")
        ,(lambda (f) (compiler:option:propagate-constants #f))
