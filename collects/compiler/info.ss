@@ -3,9 +3,8 @@
   (case request
     [(name) "mzc"]
     [(compile-prefix) '(begin
-			 (require-library "match.ss")
-			 (require-library "zsigs.ss" "zodiac")
-			 (require-library "sigs.ss" "zodiac"))]
+			 (require-library "refer.ss")
+			 (require-library "sigload.ss" "compiler"))]
     [(compile-omit-files) 
-     null]
+     (list "sig.ss" "sigload.ss")]
     [else (error 'mzc-info "Unknown request: ~s" request)]))
