@@ -12,8 +12,12 @@
 (require-library "cmdline.ss")
 (require-library "functio.ss")
 (require-library "file.ss" "dynext")
+(require-library "compile.ss" "dynext")
+(require-library "link.ss" "dynext")
 
 (define dest-dir (make-parameter #f))
+
+(define ld-output (make-parameter #f))
 
 ; Returns (values mode files prefixes)
 ;  where mode is 'compile, 'link, or 'zo
@@ -51,7 +55,18 @@
        ("Compile specified collection to extension")]
       [("--collection-zos")
        ,(lambda (f) 'collection-zos)
-       (,(format "Compile specified collection to ~a files" (append-zo-suffix "")))]]
+       (,(format "Compile specified collection to ~a files" (append-zo-suffix "")))]
+      [("--cc")
+       ,(lambda (f) 'cc)
+       (,(format "Compile arbitrary file(s) for an extension: ~a -> ~a" 
+		 (append-c-suffix "")
+		 (append-object-suffix "")))]
+      [("--ld")
+       ,(lambda (f name) (ld-output name) 'ld)
+       (,(format "Link arbitrary file(s) to create <extension>: ~a -> ~a" 
+		 (append-object-suffix "")
+		 (append-extension-suffix ""))
+	,"extension")]]
      [once-each
       [("--embedded")
        ,(lambda (f) (compiler:option:compile-for-embedded #t))
@@ -83,14 +98,22 @@
        ,(lambda (f v) (current-extension-compiler-flags
 		       (remove v (current-extension-compiler-flags))))
        ("Remove C compiler flag (allowed multiple times)" "flag")]]
-     [once-each
+     [once-any
       [("-a" "--mrspidey")
        ,(lambda (f) 
 	  (with-handlers ([void (lambda (x)
 				  (error 'mzc "MrSpidey is not installed"))])
 	    (collection-path "mrspidey"))
 	  (compiler:option:use-mrspidey #t))
-       ("Analyze with MrSpidey")]
+       ("Analyze whole program with MrSpidey")]
+      [("-u" "--mrspidey-units")
+       ,(lambda (f) 
+	  (with-handlers ([void (lambda (x)
+				  (error 'mzc "MrSpidey is not installed"))])
+	    (collection-path "mrspidey"))
+	  (compiler:option:use-mrspidey-for-units #t))
+       ("Analyze top-level units with MrSpidey")]]
+     [once-each
       [("--no-prop")
        ,(lambda (f) (compiler:option:propagate-constants #f))
        ("Don't propogate constants")]
@@ -154,7 +177,7 @@
 	 (void))))
    (list "file or collection" "file or sub-collection")))
 
-(printf "MzScheme compiler version ~a, Copyright (c) 1996-98 Sebastian Good.~n"
+(printf "MzScheme compiler version ~a, Copyright (c) 1996-98 PLT.~n"
 	(version))
 
 (define-values (mode source-files prefix)
@@ -185,4 +208,35 @@
    (apply compile-collection-extension source-files)]
   [(collection-zos)
    (apply compile-collection-zos source-files)]
+  [(cc)
+   (require-library "compile.ss" "dynext")
+   (require-library "file.ss" "dynext")
+   (for-each
+    (lambda (file)
+      (let* ([base (extract-base-filename/c file 'mzc)]
+	     [dest (append-object-suffix 
+		    (let-values ([(base name dir?) (split-path base)])
+		      (build-path (or (dest-dir) 'same) name)))])
+	(printf "\"~a\":~n" file)
+	(compile-extension (not (compiler:option:verbose))
+			   file
+			   dest
+			   null)
+	(printf " [output to \"~a\"]~n" dest)))
+    source-files)]
+  [(ld)
+   (require-library "compile.ss" "dynext")
+   (require-library "link.ss" "dynext")
+   (extract-base-filename/ext (ld-output) 'mzc)
+   (for-each (lambda (file) (extract-base-filename/o file 'mzc)) source-files)
+   (let ([dest (if (dest-dir)
+		   (build-path (dest-dir) (ld-output))
+		   (ld-output))])
+     (printf "~a:~n" (let ([s (apply string-append
+				     (map (lambda (n) (format " \"~a\"" n)) source-files))])
+		       (substring s 1 (string-length s))))
+     (link-extension (not (compiler:option:verbose))
+		     source-files
+		     dest)
+     (printf " [output to \"~a\"]~n" dest))]
   [else (printf "bad mode: ~a~n" mode)])
