@@ -20,7 +20,7 @@
 (error-escape-handler (lambda () (exit -1)))
 
 (read-case-sensitive #t)
-(error-print-width 10024)
+(error-print-width 512)
 
 (require-library "option.ss" "compiler")
 
@@ -33,6 +33,7 @@
 (require-library "link.ss" "dynext")
 
 ; temp!!!!
+; (error-print-width 10024)
 ; (require-library "errortrace.ss" "errortrace")
 ; (profiling-enabled #t) ;; uncomment call to `output-profile-results' at the end
 ; !!!!!!!

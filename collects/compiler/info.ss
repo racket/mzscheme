@@ -15,7 +15,6 @@
 	      (if spidey?
 		  null
 		  (list "sploadr.ss" "mrspideyi.ss" "mrspidey.ss")))]
-      [(compile-extension-omit-files) (list "compiler.ss")]
       [(mzscheme-launcher-libraries) (list "start.ss" "setup.ss")]
       [(mzscheme-launcher-names) (list "mzc" "Setup PLT")]
       [else (failure)])))
