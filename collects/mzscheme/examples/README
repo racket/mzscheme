@@ -31,8 +31,8 @@ end use the mzc `c-lambda', etc. forms.
    output port rather than relying on the read-eval-print-loop.
    Demonstrates using built-in Scheme parameter values from C.
 
- * tree.cxx - shows how to inject a C++ class into MzScheme's class
-   world.
+ * tree.cxx, tree-finish.ss - shows how to inject a C++ class into
+   MzLib's class.ss world.
 
 
  * fmod-ez.ss - same as fmod.c, but with 10% of the code. Demonstrates

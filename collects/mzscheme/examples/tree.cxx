@@ -1,9 +1,9 @@
-/* Example demonstrating how to inject a C++ class into MzScheme's
-   class world. 
+/* Example demonstrating how to inject a C++ class into the class
+   world of MzLib's class.ss library.
 
-   Since it uses C++, this one can be slightly tricky to compile.
-   Specifying the linker as, say g++, ensures that the right
-   C++ libraries get included:
+   Since it uses C++, this example can be slightly tricky to compile.
+   Specifying a C++ linker (e.g., g++) ensures that the right C++
+   libraries get included:
      mzc --cc tree.cxx
      mzc --linker /usr/bin/g++ --ld tree.so tree.o
 
@@ -27,7 +27,9 @@
 
   Example use in Scheme:
 
-    (load-extension "tree.so") ; defines tree% 
+    (load-extension "tree.so") ; defines tree-primitive-class and
+                               ; other things not to be used directly
+    (load "tree-finish.ss") ; defines tree%
 
     (define o (make-object tree% 10))
     (send o get-leaves) ; => 10
@@ -42,33 +44,53 @@
     (unbox b) ; => "sprouted left"
 
     (define apple-tree%
-      (class tree% ()
+      (class tree%
         (inherit graft)
-        (override
+        (override grow)
+        
+        (define grow
           ;; This `grow' drops branches and grows new ones.
-	  ;; For the command-string form, it does nothing.
-	  [grow (case-lambda 
-		 [(n)
-                  (let ([l (make-object apple-tree%)]
-		        [r (make-object apple-tree%)])
-		    (graft l r))]
-		 [(cmd result)
-		  (set-box! result (format "ignoring ~a" cmd))])])
-	(sequence (super-init 1))))
+          ;; For the command-string form, it does nothing.
+          (case-lambda 
+           [(n)
+            (let ([l (make-object apple-tree%)]
+                  [r (make-object apple-tree%)])
+              (graft l r))]
+           [(cmd result)
+            (set-box! result (format "ignoring ~a" cmd))]))
+
+        (super-instantiate () (leaves 1))))
 
     (define a (make-object apple-tree%))
     (send a get-leaves) ; => 1
-    (send a grow)
-    (send a get-left) ; => #<object:apple-tree%>
+    (send a grow 1)
+    (send a get-left) ; => #<struct:object:apple-tree%>
 
     (define o (make-object tree% 10))
     (define a (make-object apple-tree%))
     (send o graft a #f)
     (send o grow 1)   ; C++ calls apple-tree%'s `grow' for `a'
-    (send a get-left) ; -> #<object:apple-tree>
+    (send a get-left) ; -> #<struct:object:apple-tree>
 
     (send a grow "sunshine" b)
     (unbox b) ; => "ignoring sunshine"
+
+ How it Works
+
+   The class.ss library cooperates with primitive classes through a
+   `make-primitive-class' function. The glue code in this file
+   essentially builds up the necessary arguments to
+   `make-primitive-class', and tree-finish.ss actually makes the
+   call. In fact, tree.cxx knows nothing about the class
+   implementation, and the class implementation knows nothing about
+   the glue; they "just happen" to be compatible, but this glue could
+   work with a variety of class implementation.
+
+   The glue, furthermore, is split into two parts. The first part is
+   specific to the Tree class. The second part is more generic,
+   providing a fairly simple objscheme_ interface to class-specific
+   glue, such the Tree glue. The second part can be shared for any
+   number of C++ classes, and it is similar to code used by MrEd.
 */
 
 #include "escheme.h"
@@ -93,9 +115,11 @@ public:
   Tree *left_branch, *right_branch;
   int leaves;
 
-  void *user_data; /* The original class might not be this friendly,
-		      but for simplicity we assume that it is. 
-		      The alternative is to use a hash table. */
+  void *user_data; /* Field that we use for pointing back to the
+		      Scheme view of the objects. The original class
+		      might not be this friendly, but for simplicity
+		      we assume that it is. The alternative is to use
+		      a hash table. */
 
   Tree(int init_leaves) {
     left_branch = right_branch = NULL;
@@ -172,10 +196,22 @@ public:
 /* The glue class: mzTree (C++ calls to Scheme)           */
 /**********************************************************/
 
-/* The Scheme class value: */
+/* Forward declarations (documented further below) */
+void objscheme_init();
+void objscheme_add_procedures(Scheme_Env *);
+Scheme_Object *objscheme_make_class(const char *name, Scheme_Object *sup, 
+				    Scheme_Prim *initf, int num_methods);
+void objscheme_add_method_w_arity(Scheme_Object *c, const char *name, 
+				  Scheme_Prim *f, int mina, int maxa);
+Scheme_Object *objscheme_make_uninited_object(Scheme_Object *sclass);
+Scheme_Object *objscheme_find_method(Scheme_Object *obj, char *name, void **cache);
+int objscheme_is_a(Scheme_Object *o, Scheme_Object *c);
+
+
+/* The #<primitive-class> value: */
 static Scheme_Object *tree_class;
-/* Generic for the overrideable method: */
-static Scheme_Object *grow_method;
+/* Cache for lookup of overrideable method: */
+static void *grow_method_cache= NULL;
 
 /* We keep a pointer to the Scheme object, and override the
    Grow method to (potentially) dispatch to Scheme. */
@@ -193,25 +229,19 @@ public:
     /* Pointer to Scheme instance kept in user_data: */
     scmobj = (Scheme_Object *)user_data;
 
-    /* Cache a generic to find the method quickly: */
-    if (!grow_method) {
-      scheme_register_extension_global(&grow_method, sizeof(grow_method));
-      grow_method = scheme_get_generic_data(tree_class,
-					    scheme_intern_symbol("grow"));
-    }
-    
     /* Look for an overriding `grow' method in scmobj: */
-    overriding = scheme_apply_generic_data(grow_method,
-					   scmobj,
-					   0); /* 0 means return NULL
-						  if not overridden */
+    overriding = objscheme_find_method(scmobj,
+				       "grow",
+				       &grow_method_cache);
+    /* NULL result means not overridden */
 
     if (overriding) {
       /* Call Scheme-based overriding implementation: */
-      Scheme_Object *argv[1];
+      Scheme_Object *argv[2];
 
-      argv[0] = scheme_make_integer(n);
-      _scheme_apply(overriding, 1, argv);
+      argv[0] = scmobj;
+      argv[1] = scheme_make_integer(n);
+      _scheme_apply(overriding, 2, argv);
     } else {
       /* Grow is not overridden in Scheme: */
       Tree::Grow(n);
@@ -226,17 +256,11 @@ public:
 
     scmobj = (Scheme_Object *)user_data;
 
-    /* Really should put this in one place, since it's duplicated
-       from above... */
-    if (!grow_method) {
-      scheme_register_extension_global(&grow_method, sizeof(grow_method));
-      grow_method = scheme_get_generic_data(tree_class,
-					    scheme_intern_symbol("grow"));
-    }
-    
-    overriding = scheme_apply_generic_data(grow_method,
-					   scmobj,
-					   0);
+    /* Look for an overriding `grow' method in scmobj: */
+    overriding = objscheme_find_method(scmobj,
+				       "grow",
+				       &grow_method_cache);
+    /* NULL result means not overridden */
 
     if (overriding) {
       /* When calling the Scheme-based overriding implementation,
@@ -245,17 +269,18 @@ public:
 	 result. */
       Scheme_Object *argv[2], *res;
 
-      argv[0] = scheme_make_string(cmd);
-      argv[1] = scheme_box(scheme_make_string(""));
+      argv[0] = scmobj;
+      argv[1] = scheme_make_string(cmd);
+      argv[2] = scheme_box(scheme_make_string(""));
 
-      _scheme_apply(overriding, 2, argv);
+      _scheme_apply(overriding, 3, argv);
 
-      res = scheme_unbox(argv[1]);
+      res = scheme_unbox(argv[2]);
       if (!SCHEME_STRINGP(res)) {
 	scheme_wrong_type("result for tree%'s grow method",
 			  "string", -1, 0, &res);
       } else
-	result = SCHEME_STR_VAL(argv[1]);
+	result = SCHEME_STR_VAL(argv[2]);
     } else {
       Tree::Grow(cmd, result);
     }
@@ -267,7 +292,8 @@ public:
 /**********************************************************/
 
 /* Macro for accessing C++ object pointer from a Scheme object: */
-#define SCHEME_CPP_OBJ(obj) (((Scheme_Class_Object *)(obj))->primdata)
+#define OBJSCHEME_GET_CPP_OBJ(obj) scheme_struct_ref(obj, 0)
+#define OBJSCHEME_SET_CPP_OBJ(obj, v) scheme_struct_set(obj, 0, v)
 
 /* Used for finalizing: */
 void FreeTree(void *scmobj, void *t)
@@ -275,23 +301,29 @@ void FreeTree(void *scmobj, void *t)
   Tree::Drop((Tree *)t);
 }
 
-Scheme_Object *Make_Tree(Scheme_Object *obj, int argc, Scheme_Object **argv)
+Scheme_Object *Make_Tree(int argc, Scheme_Object **argv)
 {
-  /* Unfortunately, init arity is not automatically checked: */
-  if (argc != 1)
-    scheme_wrong_count("tree% initialization", 1, 1, argc, argv);
+  Scheme_Object *obj;
 
-  if (!SCHEME_INTP(argv[0]))
+  /* Unfortunately, init arity is not automatically checked: */
+  if (argc != 2)
+    scheme_wrong_count("tree% initialization", 2, 2, argc, argv);
+
+  /* Assuming the initializer is only called through
+     the class interface, argv[0] is always ok: */
+  obj = argv[0];
+
+  if (!SCHEME_INTP(argv[1]))
     scheme_wrong_type("tree% initialization", 
 		      "fixnum", 
-		      0, argc, argv);
+		      1, argc, argv);
 
   /* Create C++ instance, and remember pointer back to Scheme instance: */
-  Tree *t = new mzTree(SCHEME_INT_VAL(argv[0]));
+  Tree *t = new mzTree(SCHEME_INT_VAL(argv[1]));
   t->user_data = obj;
 
   /* Store C++ pointer in Scheme object: */
-  SCHEME_CPP_OBJ(obj) = t;
+  OBJSCHEME_SET_CPP_OBJ(obj, (Scheme_Object *)t);
 
   /* Free C++ instance when the Scheme object is no longer referenced: */
   scheme_add_finalizer(obj, FreeTree, t);
@@ -299,20 +331,22 @@ Scheme_Object *Make_Tree(Scheme_Object *obj, int argc, Scheme_Object **argv)
   return obj;
 }
 
-Scheme_Object *Grow(Scheme_Object *obj, int argc, Scheme_Object **argv)
+Scheme_Object *Grow(int argc, Scheme_Object **argv)
 {
-  if (argc == 1) {
+  Scheme_Object *obj = argv[0];
+
+  if (argc == 2) {
     Tree *t;
     int n;
 
-    if (!SCHEME_INTP(argv[0]))
+    if (!SCHEME_INTP(argv[1]))
       scheme_wrong_type("tree%'s grow", 
 			"fixnum", 
-			0, argc, argv);
-    n = SCHEME_INT_VAL(argv[0]);
+			1, argc, argv);
+    n = SCHEME_INT_VAL(argv[1]);
     
     /* Extract the C++ pointer: */
-    t = (Tree *)SCHEME_CPP_OBJ(obj);
+    t = (Tree *)OBJSCHEME_GET_CPP_OBJ(obj);
     
     /* Call method (without override check): */
     t->Tree::Grow(n);
@@ -320,55 +354,56 @@ Scheme_Object *Grow(Scheme_Object *obj, int argc, Scheme_Object **argv)
     Tree *t;
     char *cmd, *result;
 
-    if (!SCHEME_STRINGP(argv[0]))
+    if (!SCHEME_STRINGP(argv[1]))
       scheme_wrong_type("tree%'s grow", 
 			"string", 
-			0, argc, argv);
-    if (!SCHEME_BOXP(argv[1])
-	|| !SCHEME_STRINGP(SCHEME_BOX_VAL(argv[1])))
+			1, argc, argv);
+    if (!SCHEME_BOXP(argv[2])
+	|| !SCHEME_STRINGP(SCHEME_BOX_VAL(argv[2])))
       scheme_wrong_type("tree%'s grow", 
 			"boxed string", 
-			1, argc, argv);
+			2, argc, argv);
 
-    cmd = SCHEME_STR_VAL(argv[0]);
-    result = SCHEME_STR_VAL(SCHEME_BOX_VAL(argv[1]));
+    cmd = SCHEME_STR_VAL(argv[1]);
+    result = SCHEME_STR_VAL(SCHEME_BOX_VAL(argv[2]));
 
     /* Extract the C++ pointer: */
-    t = (Tree *)SCHEME_CPP_OBJ(obj);
+    t = (Tree *)OBJSCHEME_GET_CPP_OBJ(obj);
     
     /* Call method (without override check): */
     t->Tree::Grow(cmd, result);
 
     /* Put result back in box: */
-    SCHEME_BOX_VAL(argv[1]) = scheme_make_string(result);
+    SCHEME_BOX_VAL(argv[2]) = scheme_make_string(result);
   }
   
   return scheme_void;
 }
 
-Scheme_Object *Graft(Scheme_Object *obj, int argc, Scheme_Object **argv)
+Scheme_Object *Graft(int argc, Scheme_Object **argv)
 {
+  Scheme_Object *obj = argv[0];
   Tree *t, *l, *r;
 
-  if (!SCHEME_FALSEP(argv[0]) && !scheme_is_a(argv[0], tree_class))
-    scheme_wrong_type("tree%'s graft", 
-		      "tree% object or #f", 
-		      0, argc, argv);
-  if (!SCHEME_FALSEP(argv[1]) && !scheme_is_a(argv[1], tree_class))
+  if (!SCHEME_FALSEP(argv[1]) && !objscheme_is_a(argv[1], tree_class))
     scheme_wrong_type("tree%'s graft", 
 		      "tree% object or #f", 
 		      1, argc, argv);
+  if (!SCHEME_FALSEP(argv[2]) && !objscheme_is_a(argv[2], tree_class))
+    scheme_wrong_type("tree%'s graft", 
+		      "tree% object or #f", 
+		      2, argc, argv);
 
   /* Extract the C++ pointer for `this': */
-  t = (Tree *)SCHEME_CPP_OBJ(obj);
+  t = (Tree *)OBJSCHEME_GET_CPP_OBJ(obj);
 
   /* Extract the C++ pointers for the args: */
-  l = (SCHEME_FALSEP(argv[0])
+  l = (SCHEME_FALSEP(argv[1])
        ? (Tree *)NULL
-       : (Tree *)SCHEME_CPP_OBJ(argv[0]));
-  r = (SCHEME_FALSEP(argv[1])
+       : (Tree *)OBJSCHEME_GET_CPP_OBJ(argv[1]));
+  r = (SCHEME_FALSEP(argv[2])
        ? (Tree *)NULL
-       : (Tree *)SCHEME_CPP_OBJ(argv[1]));
+       : (Tree *)OBJSCHEME_GET_CPP_OBJ(argv[2]));
   
   /* Call method: */
   t->Graft(l, r);
@@ -386,11 +421,11 @@ Scheme_Object *MarshalTree(Tree *t)
     Scheme_Object *scmobj;
 
     /* Make Scheme object: */
-    scmobj = scheme_make_uninited_object(tree_class);
+    scmobj = objscheme_make_uninited_object(tree_class);
 
     /* Link C++ and Scheme objects: */
     t->user_data = scmobj;
-    SCHEME_CPP_OBJ(scmobj) = t;
+    OBJSCHEME_SET_CPP_OBJ(scmobj, (Scheme_Object *)t);
     
     return scmobj;
   } else
@@ -398,23 +433,23 @@ Scheme_Object *MarshalTree(Tree *t)
     return (Scheme_Object *)t->user_data;
 }
 
-Scheme_Object *Get_Left(Scheme_Object *obj, int argc, Scheme_Object **argv)
+Scheme_Object *Get_Left(int argc, Scheme_Object **argv)
 {
-  Tree *t = (Tree *)SCHEME_CPP_OBJ(obj);
+  Tree *t = (Tree *)OBJSCHEME_GET_CPP_OBJ(argv[0]);
   
   return MarshalTree(t->left_branch);
 }
 
-Scheme_Object *Get_Right(Scheme_Object *obj, int argc, Scheme_Object **argv)
+Scheme_Object *Get_Right(int argc, Scheme_Object **argv)
 { 
-  Tree *t = (Tree *)SCHEME_CPP_OBJ(obj);
+  Tree *t = (Tree *)OBJSCHEME_GET_CPP_OBJ(argv[0]);
  
   return MarshalTree(t->right_branch);
 }
 
-Scheme_Object *Get_Leaves(Scheme_Object *obj, int argc, Scheme_Object **argv)
+Scheme_Object *Get_Leaves(int argc, Scheme_Object **argv)
 {
-  Tree *t = (Tree *)SCHEME_CPP_OBJ(obj);
+  Tree *t = (Tree *)OBJSCHEME_GET_CPP_OBJ(argv[0]);
  
   return scheme_make_integer(t->leaves);
 }
@@ -423,37 +458,437 @@ Scheme_Object *Get_Leaves(Scheme_Object *obj, int argc, Scheme_Object **argv)
 /* Extension initialization: create the Scheme class      */
 /**********************************************************/
 
-Scheme_Object *scheme_initialize(Scheme_Env *env)
+Scheme_Object *scheme_reload(Scheme_Env *env)
 {
-  scheme_register_extension_global(&tree_class, sizeof(tree_class));
+  scheme_add_global("tree-primitive-class", tree_class, env);
 
-  tree_class = scheme_make_class("tree%",    /* name */
-				 NULL,       /* superclass */
-				 Make_Tree,  /* init func */
-				 5);         /* num methods */
-
-  scheme_add_method_w_arity(tree_class, "grow",
-			    Grow, 1, 2);
-  scheme_add_method_w_arity(tree_class, "graft", 
-			    Graft, 2, 2);
-
-  scheme_add_method_w_arity(tree_class, "get-left",
-			    Get_Left, 0, 0);
-  scheme_add_method_w_arity(tree_class, "get-right",
-			    Get_Right, 0, 0);
-  scheme_add_method_w_arity(tree_class, "get-leaves",
-			    Get_Leaves, 0, 0);
-
-  scheme_made_class(tree_class);
-  
-  scheme_add_global("tree%", tree_class, env);
+  objscheme_add_procedures(env);
 
   return scheme_void;
 }
 
-Scheme_Object *scheme_reload(Scheme_Env *env)
+Scheme_Object *scheme_initialize(Scheme_Env *env)
 {
-  scheme_add_global("tree%", tree_class, env);
+  objscheme_init();
 
-  return scheme_void;
+  scheme_register_extension_global(&tree_class, sizeof(tree_class));
+
+  tree_class = objscheme_make_class("tree%",    /* name */
+				    NULL,       /* superclass */
+				    Make_Tree,  /* init func */
+				    5);         /* num methods */
+
+  objscheme_add_method_w_arity(tree_class, "grow",
+			       Grow, 1, 2);
+  objscheme_add_method_w_arity(tree_class, "graft", 
+			       Graft, 2, 2);
+
+  objscheme_add_method_w_arity(tree_class, "get-left",
+			       Get_Left, 0, 0);
+  objscheme_add_method_w_arity(tree_class, "get-right",
+			       Get_Right, 0, 0);
+  objscheme_add_method_w_arity(tree_class, "get-leaves",
+			       Get_Leaves, 0, 0);
+
+  return scheme_reload(env);
+}
+
+/**********************************************************/
+/* The generic (class-independent) C++--Scheme glue       */
+/**********************************************************/
+
+/* 
+   (This code is mostly the same as code used by MrEd, and duplicating
+   it is certainly a bad idea in principle, but putting the code in a
+   shareable place seems like more work than is worthwhile for now.)
+
+   Scheme side:
+   ------------
+
+   This glue provides a new type, #<primitive-class>, and several
+   procedures:
+
+      (initialize-primitive-object prim-obj v ...) -
+        initializes the primitive object, given initialization
+        arguments v ...
+
+      (primitive-class-prepare-struct-type! prim-class gen-property
+        gen-value dispatcher) - prepares a class's struct-type for
+        objects generated C-side, so it must be called before any C++
+        objects are Schemified.
+
+        Returns a constructor, predicate, and a struct:type for
+        derived classes. The constructor and struct:type map the given
+        dispatcher to the class.
+
+        The dispatcher takes two arguments: an object, and a
+        method-specific box initially containing the method name. It
+        returns #f (meaning the method is not overridden by a
+        non-primitive method) or a method procedure.
+
+      (primitive-class-find-method prim-class sym) - gets the method
+        procedure for the given symbol from the class. The procedure
+        consumes "self" and then the rest of the arguments.
+
+   C side:
+   -------
+
+     void objscheme_init() - initializes the glue; call this first.
+
+     void objscheme_add_procedures(Scheme_Env *) - installs the
+        Scheme-side procedure listed above into the environment.
+
+     Scheme_Object *objscheme_make_class(const char *name,
+        Scheme_Object *sup, Scheme_Prim *initf, int num_methods) -
+        creates a #<primitive-class> representing a C++ class. The
+        initf function is called to create and initialize the C++-side
+        when the class is instantiated from Scheme; the first argument
+        is the Scheme-side `self' object. The Scheme-side object is a
+        struct, and the first field should be set to point to the C++
+        object.
+
+        The sup argument is a #<primitive-class> for a superclass, or
+        scheme_false. The num_methods argument specifies the number of
+        methods that will be added to the class.
+
+     void objscheme_add_method_w_arity(Scheme_Object *c, const char
+	*name, Scheme_Prim *f, int mina, int maxa) - adds a method to
+	a #<primitive-class>, specifying the method's arity as with
+	scheme_make_prim_w_arity().
+
+     Scheme_Object *objscheme_make_uninited_object(Scheme_Object *sclass)
+        - creates a Scheme-side object for an existing C++ obj. The
+        Scheme-side object is a struct, and the first field should be
+        set to point to the C++ object.
+
+     Scheme_Object *objscheme_find_method(Scheme_Object *obj, char
+        *name, void **cache) - finds a method by name in a Scheme-side
+        object. If the method is not overridden Scheme-side, the
+        result is NULL, otherwise it is a Scheme procedure for the
+        method (which takes the Scheme-side `self' as its first
+        argument). The cache pointer should point to static,
+        class-specific space for caching lookup information.
+
+     int objscheme_is_a(Scheme_Object *o, Scheme_Object *c) - returns 1
+        if the given Scheme-side object is an instance of the given
+        #<primitive-class>, 0 otherwise.
+
+*/
+
+typedef struct Objscheme_Class {
+  Scheme_Type type;
+  const char *name;
+  Scheme_Object *sup;
+  Scheme_Object *initf;
+  int num_methods, num_installed;
+  Scheme_Object **names;
+  Scheme_Object **methods;
+  Scheme_Object *base_struct_type;
+  Scheme_Object *struct_type;
+} Objscheme_Class;
+
+Scheme_Type objscheme_class_type;
+
+static Scheme_Object *object_struct;
+static Scheme_Object *object_property;
+static Scheme_Object *dispatcher_property;
+
+#define CONS(a, b) scheme_make_pair(a, b)
+
+/***************************************************************************/
+/* Scheme-side implementation: */
+
+static Scheme_Object *init_prim_obj(int argc, Scheme_Object **argv)
+{
+  Objscheme_Class *c;
+  Scheme_Object *obj = argv[0];
+
+  if (!SCHEME_STRUCTP(argv[0])
+      || !scheme_is_struct_instance(object_struct, argv[0]))
+    scheme_wrong_type("initialize-primitive-object", "primitive-object", 0, argc, argv);
+  
+  c = (Objscheme_Class *)scheme_struct_type_property_ref(object_property, obj);
+
+  return _scheme_apply(c->initf, argc, argv);
+}
+
+static Scheme_Object *class_prepare_struct_type(int argc, Scheme_Object **argv)
+{
+  Scheme_Object *name, *base_stype, *stype, *derive_stype;
+  Scheme_Object **names, **vals, *a[3];
+  Objscheme_Class *c;
+  int flags, count;
+
+  if (SCHEME_TYPE(argv[0]) != objscheme_class_type)
+    scheme_wrong_type("primitive-class-prepare-struct-type!", "primitive-class", 0, argc, argv);
+  if (SCHEME_TYPE(argv[1]) != scheme_struct_property_type)
+    scheme_wrong_type("primitive-class-prepare-struct-type!", "struct-type-property", 1, argc, argv);
+  scheme_check_proc_arity("primitive-class-prepare-struct-type!", 2, 3, argc, argv);
+
+  c = ((Objscheme_Class *)argv[0]);
+  
+  stype = c->struct_type;
+
+  name = scheme_intern_symbol(c->name);
+
+  if (stype) {
+    scheme_arg_mismatch("primitive-class-prepare-struct-type!",
+			"struct-type already prepared for primitive-class: ",
+			name);
+    return NULL;
+  }
+
+  if (SCHEME_TRUEP(c->sup) && !((Objscheme_Class *)c->sup)->base_struct_type) {
+    scheme_arg_mismatch("primitive-class-prepare-struct-type!",
+			"super struct-type not yet prepared for primitive-class: ",
+			name);
+    return NULL;
+  }
+
+  /* Root for this class.  */
+
+  base_stype = scheme_make_struct_type(name, 
+				       (SCHEME_TRUEP(c->sup) 
+					? ((Objscheme_Class *)c->sup)->base_struct_type 
+					: object_struct),
+				       NULL,
+				       0, 0, NULL,
+				       NULL);
+  c->base_struct_type = base_stype;
+
+  /* Type to use when instantiating from C: */
+
+  stype = scheme_make_struct_type(name,
+				  base_stype, 
+				  NULL,
+				  0, 0, NULL,
+				  CONS(CONS(argv[1], argv[2]),
+				       CONS(CONS(object_property, 
+						 argv[0]),
+					    scheme_null)));
+  
+  c->struct_type = stype;
+  
+  /* Type to derive from Scheme: */
+  
+  derive_stype = scheme_make_struct_type(name,
+					 base_stype, 
+					 NULL,
+					 0, 0, NULL,
+					 CONS(CONS(dispatcher_property, argv[3]),
+					      CONS(CONS(object_property, 
+							argv[0]),
+						   scheme_null)));
+  
+  /* Type to instantiate from Scheme: */
+  
+  stype = scheme_make_struct_type(name,
+				  base_stype, 
+				  NULL,
+				  0, 0, NULL,
+				  CONS(CONS(argv[1], argv[2]),
+				       CONS(CONS(dispatcher_property, argv[3]),
+					    CONS(CONS(object_property, 
+						      argv[0]),
+						 scheme_null))));
+  
+  /* Need constructor from instantiate type: */
+  flags = (SCHEME_STRUCT_NO_TYPE
+	   | SCHEME_STRUCT_NO_PRED
+	   | SCHEME_STRUCT_NO_GET
+	   | SCHEME_STRUCT_NO_SET);
+  names = scheme_make_struct_names(name, NULL, flags, &count);
+  vals = scheme_make_struct_values(stype, names, count, flags);
+  a[0] = vals[0];
+
+  /* Need predicate from base type: */
+  flags = (SCHEME_STRUCT_NO_TYPE
+	   | SCHEME_STRUCT_NO_CONSTR
+	   | SCHEME_STRUCT_NO_GET
+	   | SCHEME_STRUCT_NO_SET);
+  names = scheme_make_struct_names(name, NULL, flags, &count);
+  vals = scheme_make_struct_values(base_stype, names, count, flags);
+  a[1] = vals[0];
+
+  /* Need derive type: */
+  a[2] = derive_stype;
+
+  return scheme_values(3, a);
+}
+
+static Scheme_Object *class_find_meth(int argc, Scheme_Object **argv)
+{
+  Objscheme_Class *sclass = (Objscheme_Class *)argv[0];
+  Scheme_Object *s;
+  int i;
+
+  if (SCHEME_TYPE(argv[0]) != objscheme_class_type)
+    scheme_wrong_type("primitive-class-find-method", "primitive-class", 0, argc, argv);
+  if (!SCHEME_SYMBOLP(argv[1]))
+    scheme_wrong_type("primitive-class-find-method", "symbol", 1, argc, argv);
+
+  s = argv[1];
+
+  for (i = sclass->num_installed; i--; ) {
+    if (SAME_OBJ(sclass->names[i], s))
+      return sclass->methods[i];
+  }
+
+  return scheme_false;
+}
+
+Scheme_Object *objscheme_make_uninited_object(Scheme_Object *sclass)
+{
+  Scheme_Object *obj;
+  Scheme_Object *stype;
+
+  stype = ((Objscheme_Class *)sclass)->struct_type;
+  if (!stype) {
+    scheme_arg_mismatch("make-primitive-object",
+			"struct-type not yet prepared: ",
+			sclass);
+    return NULL;
+  }
+
+  obj = scheme_make_struct_instance(stype, 0, NULL);
+
+  return obj;  
+}
+
+/***************************************************************************/
+/* C-side implementation: */
+
+Scheme_Object *objscheme_make_class(const char *name, Scheme_Object *sup, 
+				    Scheme_Prim *initf, int num_methods)
+{
+  Objscheme_Class *sclass;
+  Scheme_Object *f, **methods, **names;
+
+  sclass = (Objscheme_Class *)scheme_malloc_tagged(sizeof(Objscheme_Class));
+  sclass->type = objscheme_class_type;
+
+  if (!sup)
+    sup = scheme_false;
+
+  sclass->name = name;
+  sclass->sup = sup;
+
+  f = scheme_make_prim(initf);
+  sclass->initf = f;
+
+  sclass->num_methods = num_methods;
+  sclass->num_installed = 0;
+
+  methods = (Scheme_Object **)scheme_malloc(sizeof(Scheme_Object *) * num_methods);
+  names = (Scheme_Object **)scheme_malloc(sizeof(Scheme_Object *) * num_methods);
+
+  sclass->methods = methods;
+  sclass->names = names;
+
+  return (Scheme_Object *)sclass;
+}
+
+void objscheme_add_method_w_arity(Scheme_Object *c, const char *name,
+				  Scheme_Prim *f, int mina, int maxa)
+{
+  Scheme_Object *s;
+  Objscheme_Class *sclass;
+
+  sclass = (Objscheme_Class *)c;
+
+  s = scheme_make_prim_w_arity(f, name, mina + 1, (maxa < 0) ? -1 : (maxa + 1));
+
+  sclass->methods[sclass->num_installed] = s;
+
+  s = scheme_intern_symbol(name);
+
+  sclass->names[sclass->num_installed] = s;
+
+  sclass->num_installed++;
+}
+
+int objscheme_is_a(Scheme_Object *o, Scheme_Object *c)
+{
+  Scheme_Object *a;
+
+  if (!SCHEME_STRUCTP(o) || !scheme_is_struct_instance(object_struct, o))
+    return 0;
+
+  a = scheme_struct_type_property_ref(object_property, o);
+  
+  while (a && (a != c)) {
+    a = ((Objscheme_Class *)a)->sup;
+  }
+
+  return !!a;
+}
+
+void objscheme_init()
+{
+  objscheme_class_type = scheme_make_type("<primitive-class>");
+
+  /* Attaches a primitive class to an object: */
+  scheme_register_extension_global(&object_property, sizeof(object_property));
+  object_property = scheme_make_struct_type_property(scheme_intern_symbol("primitive-object"));
+  
+  /* Attaches a dispatcher function to a derived class: */
+  scheme_register_extension_global(&dispatcher_property, sizeof(dispatcher_property));
+  dispatcher_property = scheme_make_struct_type_property(scheme_intern_symbol("primitive-dispatcher"));
+
+  /* The base struct type for the Scheme view of a primitive object: */
+  scheme_register_extension_global(&object_struct, sizeof(object_struct));
+  object_struct = scheme_make_struct_type(scheme_intern_symbol("primitive-object"), 
+					  NULL, NULL,
+					  0, 2, NULL,
+					  NULL);
+}
+
+void objscheme_add_procedures(Scheme_Env *env)
+{
+  scheme_add_global("initialize-primitive-object",
+		    scheme_make_prim_w_arity(init_prim_obj,
+					     "initialize-primitive-object",
+					     1, -1),
+		    env);
+
+  scheme_add_global("primitive-class-prepare-struct-type!",
+		    scheme_make_prim_w_arity(class_prepare_struct_type,
+					     "primitive-class-prepare-struct-type!",
+					     4, 4),
+		    env);
+  
+  scheme_add_global("primitive-class-find-method",
+		    scheme_make_prim_w_arity(class_find_meth,
+					     "primitive-class-find-method",
+					     2, 2),
+		    env);
+}
+
+Scheme_Object *objscheme_find_method(Scheme_Object *obj, char *name, void **cache)
+{
+  Scheme_Object *s, *m, *p[2], *dispatcher;
+
+  if (!obj)
+    return NULL;
+
+  dispatcher = scheme_struct_type_property_ref(dispatcher_property, obj);
+  if (!dispatcher)
+    return NULL;
+
+  if (*cache)
+    s = (Scheme_Object *)*cache;
+  else {
+    scheme_register_extension_global((void *)cache, sizeof(void *));
+    s = scheme_box(scheme_intern_symbol(name));
+    *cache = s;
+  }
+
+  p[0] = obj;
+  p[1] = s;
+  m = scheme_apply(dispatcher, 2, p);
+
+  if (SCHEME_FALSEP(m))
+    return NULL;
+
+  return m;
 }

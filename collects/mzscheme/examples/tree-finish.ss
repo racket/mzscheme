@@ -1,0 +1,29 @@
+
+;; Assumes that tree.so has been loaded
+
+(require (lib "class.ss"))
+
+(define tree%
+  (let ([method-names '(get-leaves 
+			get-left get-right
+			grow
+			graft)])
+    (make-primitive-class
+     (lambda (class prop:object dispatcher)
+       (primitive-class-prepare-struct-type! 
+	tree-primitive-class
+	prop:object
+	class
+	dispatcher))
+     initialize-primitive-object
+     'tree%
+     object%
+     '(leaves)
+     null
+     method-names
+     null
+     (map
+      (lambda (name)
+	(primitive-class-find-method tree-primitive-class name))
+      method-names))))
+
