@@ -33,7 +33,7 @@
 (require-library "link.ss" "dynext")
 
 ; temp!!!!
-(require-library "errortrace.ss" "errortrace")
+; (require-library "errortrace.ss" "errortrace")
 ; !!!!!!!
 
 (define dest-dir (make-parameter #f))
