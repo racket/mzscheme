@@ -54,6 +54,8 @@
   (define plt-setup-collections (make-parameter null))
   (define plt-include-compiled (make-parameter #f))
 
+  (define use-3m (make-parameter #f))
+
   ;; Returns (values mode files prefixes)
   ;;  where mode is 'compile, 'link, or 'zo
   (define (parse-options argv)
@@ -124,6 +126,9 @@
 	[("-m" "--module")
 	 ,(lambda (f) (module-mode #t))
 	 ("Skip eval of top-level syntax, etc. for -e/-c/-o/-z")]
+	[("--3m")
+	 ,(lambda (f) (use-3m #t))
+	 ("Compile/link for 3m, with -e/-c/-o/etc.")]
 	[("--embedded")
 	 ,(lambda (f) (compiler:option:compile-for-embedded #t))
 	 ("Compile for embedded run-time engine, with -c/-o/-g")]
@@ -342,6 +347,10 @@
   (define (never-embedded action)
     (when (compiler:option:compile-for-embedded)
       (error 'mzc "cannot ~a an extension for an embedded MzScheme" action)))
+  
+  (when (use-3m)
+    (link-variant '3m)
+    (compile-variant '3m))
   
   (case mode
     [(compile)
