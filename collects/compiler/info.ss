@@ -12,8 +12,7 @@
 				`(require-library "spsigload.ss" "compiler")
 				`(require-library "sigload.ss" "compiler")))]
       [(compile-omit-files) 
-       (list* "baseloadr.ss"
-	      "sig.ss" "sigload.ss" "spsigload.ss" "setup.ss" "setupsig.ss"
+       (list* "sig.ss" "sigload.ss" "spsigload.ss" "setup.ss" "setupsig.ss"
 	      (if spidey?
 		  null
 		  (list "sploadr.ss" "mrspideyi.ss" "mrspidey.ss")))]

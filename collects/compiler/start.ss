@@ -34,6 +34,7 @@
 
 ; temp!!!!
 ; (error-print-width 10024)
+; (require-library-use-compiled #f)
 ; (require-library "errortrace.ss" "errortrace")
 ; (profiling-enabled #t) ;; uncomment call to `output-profile-results' at the end
 ; !!!!!!!
