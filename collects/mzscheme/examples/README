@@ -1,5 +1,6 @@
-This directory contains a few example MzScheme extensions implemented
-in C:
+This directory contains a few example MzScheme extensions. Most are
+implemented directly in C. A few that are listed at the end use the
+mzc `c-lambda', etc. forms.
 
  * hello.c - returns the string "Hello, World!". Demonstrates creating
    a Scheme value.
@@ -32,3 +33,10 @@ in C:
 
  * tree.cxx - shows how to inject a C++ class into MzScheme's class
    world.
+
+
+ * fmod-ez.c - same as fmod.c, but implemented with `c-lambda'.
+
+ * msgbox.ss - a Windows-only example, provides a `message-box'
+   procedure.
+

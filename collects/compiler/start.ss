@@ -285,6 +285,7 @@
 	(cons file files) 
 	`(begin
 	   ,(if (compiler:option:assume-primitives) '(require mzscheme) '(void))
+	   (require (lib "cffi.ss" "compiler"))
 	   (require-for-syntax mzscheme)
 	   ,@(map (lambda (s) `(load ,s)) (filter string? accum))
 	   (void))))
