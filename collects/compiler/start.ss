@@ -48,6 +48,7 @@
   (define plt-output (make-parameter #f))
   (define plt-name (make-parameter default-plt-name))
   (define plt-files-replace (make-parameter #f))
+  (define plt-files-plt-relative? (make-parameter #f))
   (define plt-setup-collections (make-parameter null))
 
   ;; Returns (values mode files prefixes)
@@ -230,7 +231,10 @@
 	 ("Set the printed <name> describing the archive" "name")]
 	[("--replace")
 	 ,(lambda (f) (plt-files-replace #t))
-	 ("Files in archive replace existing files when unpacked")]]
+	 ("Files in archive replace existing files when unpacked")]
+	[("--in-plt")
+	 ,(lambda (f) (plt-files-plt-relative? #t))
+	 ("Files/dirs in archive are relative to PLT installation directory")]]
        [multi
 	[("++setup")
 	 ,(lambda (f c) (plt-setup-collections
@@ -475,7 +479,8 @@
 		       'file-replace
 		       'file)
 		   #f
-		   (eq? mode 'plt-collect)
+		   (or (eq? mode 'plt-collect)
+		       (plt-files-plt-relative?))
 		   ;; For each require, get current version
 		   (map (lambda (r)
 			  (let ([i (get-info r)])
