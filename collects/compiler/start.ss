@@ -166,6 +166,9 @@
       [("--no-prop")
        ,(lambda (f) (compiler:option:propagate-constants #f))
        ("Don't propogate constants")]
+      [("--no-lite")
+       ,(lambda (f) (compiler:option:lightweight #f))
+       ("Don't perform lightweight closure conversion")]
       [("--inline")
        ,(lambda (f d) (compiler:option:max-inline-size 
 		       (with-handlers ([void
