@@ -184,7 +184,7 @@
        ,(lambda (f v) (compiler:option:zo-compiler-flags
 		       (append (compiler:option:zo-compiler-flags)
 			       (list (string->symbol v)))))
-       ("Add .zo compiler flag" "flag")]
+       ("Add .zo compiler flag (see `compile-file' docs)" "flag")]
       [("--zof") 
        ,(lambda (f v) (zo-compile-flags
 		       (remove (string->symbol v) (compiler:option:zo-compiler-flags))))
