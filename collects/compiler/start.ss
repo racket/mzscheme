@@ -184,7 +184,16 @@
        ("Assume primitives (e.g., treat `car' as `#%car')")]
       [("--stupid")
        ,(lambda (f) (compiler:option:stupid #t))
-       ("Compile despite obvious non-syntactic errors")]]
+       ("Compile despite obvious non-syntactic errors")]
+      [("--unsafe-disable-interrupts")
+       ,(lambda (f) (compiler:option:disable-interrupts #t))
+       ("UNSAFE: Disable threads and breaking, crash on stack overflow")]
+      [("--unsafe-skip-tests")
+       ,(lambda (f) (compiler:option:unsafe #t))
+       ("UNSAFE: Skip run-time tests for some primitive operations")]
+      [("--unsafe-fixnum-arithmetic")
+       ,(lambda (f) (compiler:option:fixnum-arithmetic #t))
+       ("UNSAFE: Assume fixnum arithmetic yields a fixnum")]]
      [once-each
       [("-n" "--name") 
        ,(lambda (f name) (compiler:option:setup-prefix name))
