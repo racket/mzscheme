@@ -34,7 +34,7 @@
 
 ; temp!!!!
 ; (require-library "errortrace.ss" "errortrace")
-; (profiling-enabled #t)
+; (profiling-enabled #t) ;;; uncomment `output-profile-results' at end, too
 ; !!!!!!!
 
 (define dest-dir (make-parameter #f))
@@ -281,18 +281,19 @@
      (printf " [output to \"~a\"]~n" dest))]
   [else (printf "bad mode: ~a~n" mode)])
 
-(define (output-profile-results paths?)
+(define (output-profile-results paths? sort-time?)
   (profiling-enabled #f)
   (error-print-width 50)
   (printf "Sorting profile data...~n")
-  (let ([counts (quicksort (filter (lambda (c) (positive? (car c))) (get-profile-counts))
-			   (lambda (a b) (< (car a) (car b))))]
-	[total 0])
+  (let* ([sel (if sort-time? cadr car)]
+	 [counts (quicksort (filter (lambda (c) (positive? (car c))) (get-profile-counts))
+			    (lambda (a b) (< (sel a) (sel b))))]
+	 [total 0])
     (for-each
      (lambda (c)
-       (set! total (+ total (car c)))
+       (set! total (+ total (sel c)))
        (printf "====================================================================~n")
-       (printf " ~a : ~e in ~s~n" (car c) (cadr c) (caddr c))
+       (printf " ~a : ~e in ~s~n" (sel c) (caddr c) (cadddr c))
        ;; print call paths
        (when paths?
 	 (for-each
@@ -304,10 +305,10 @@
 		 (printf " <- ~e" (car cm)))
 	       (cdr cms))
 	      (printf "~n")))
-	  (cadddr c))))
+	  (cadddr (cdr c)))))
      counts)
     (printf "Total samples: ~a~n" total)))
 
 ; temp!!
-; (output-profile-results #t)
+; (output-profile-results #t #t)
 ; !!!!!!
