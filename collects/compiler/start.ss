@@ -43,6 +43,7 @@
 (define ld-output (make-parameter #f))
 
 (define exe-output (make-parameter #f))
+(define exe-embedded-flags (make-parameter '("-mvq-")))
 
 ; Returns (values mode files prefixes)
 ;  where mode is 'compile, 'link, or 'zo
@@ -96,12 +97,12 @@
        ,(lambda (f name) (exe-output name) 'exe)
        (,(format "Embed Scheme source(s)/~a in MzScheme to create <exe>" 
 		 (append-zo-suffix ""))
-	,"extension")]
+	,"exe")]
       [("--gui-exe")
        ,(lambda (f name) (exe-output name) 'gui-exe)
        (,(format "Embed Scheme source(s)/~a in MrEd to create <exe>" 
 		 (append-zo-suffix ""))
-	,"extension")]]
+	,"exe")]]
      [once-each
       [("--embedded")
        ,(lambda (f) (compiler:option:compile-for-embedded #t))
@@ -114,7 +115,7 @@
 	  (unless (directory-exists? d)
 		  (error 'mzc "the destination directory does not exist: ~s" d))
 	  (dest-dir d))
-       ("Output file(s) to <dir>" "dir")]
+       ("Output -e/-c/-o/-l/-g/-z file(s) to <dir>" "dir")]
       [("-v") 
        ,(lambda (f) (compiler:option:verbose #t))
        ("Verbose mode")]
@@ -134,9 +135,6 @@
        ,(lambda (f v) (current-extension-compiler v))
        ("Use <compiler-path> as C compiler" "compiler-path")]]
      [multi
-      [("--ccf-clear") 
-       ,(lambda (f) (current-extension-compiler-flags null))
-       ("Clear C compiler flags")]
       [("++ccf") 
        ,(lambda (f v) (current-extension-compiler-flags
 		       (append (current-extension-compiler-flags)
@@ -146,6 +144,9 @@
        ,(lambda (f v) (current-extension-compiler-flags
 		       (remove v (current-extension-compiler-flags))))
        ("Remove C compiler flag" "flag")]
+      [("--ccf-clear") 
+       ,(lambda (f) (current-extension-compiler-flags null))
+       ("Clear C compiler flags")]
       [("--ccf-show") 
        ,(lambda (f) 
 	  (printf "C compiler flags: ~s~n" (current-extension-compiler-flags)))
@@ -155,9 +156,6 @@
        ,(lambda (f v) (current-extension-linker v))
        ("Use <linker-path> as C linker" "linker-path")]]
      [multi
-      [("--ldf-clear") 
-       ,(lambda (f) (current-extension-linker-flags null))
-       ("Clear C linker flags")]
       [("++ldf") 
        ,(lambda (f v) (current-extension-linker-flags
 		       (append (current-extension-linker-flags)
@@ -167,14 +165,14 @@
        ,(lambda (f v) (current-extension-linker-flags
 		       (remove v (current-extension-linker-flags))))
        ("Remove C linker flag" "flag")]
+      [("--ldf-clear") 
+       ,(lambda (f) (current-extension-linker-flags null))
+       ("Clear C linker flags")]
       [("--ldf-show") 
        ,(lambda (f) 
 	  (printf "C linker flags: ~s~n" (current-extension-linker-flags)))
        ("Show C linker flags")]]
      [multi
-      [("--zof-clear") 
-       ,(lambda (f) (compiler:option:zo-compiler-flags null))
-       ("Clear .zo compiler flags")]
       [("++zof") 
        ,(lambda (f v) (compiler:option:zo-compiler-flags
 		       (append (compiler:option:zo-compiler-flags)
@@ -184,10 +182,30 @@
        ,(lambda (f v) (zo-compile-flags
 		       (remove (string->symbol v) (compiler:option:zo-compiler-flags))))
        ("Remove .zo compiler flag" "flag")]
+      [("--zof-clear") 
+       ,(lambda (f) (compiler:option:zo-compiler-flags null))
+       ("Clear .zo compiler flags")]
       [("--zof-show") 
        ,(lambda (f) 
 	  (printf ".zo compiler flags: ~s~n" (compiler:option:zo-compiler-flags)))
        ("Show .zo compiler flags")]]
+     [multi
+      [("++exf") 
+       ,(lambda (f v) (exe-embedded-flags
+		       (append (exe-embedded-flags)
+			       (list v))))
+       ("Add flag to embed in --[gui-]exe executable" "flag")]
+      [("--exf") 
+       ,(lambda (f v) (exe-embedded-flags
+		       (remove v (exe-embedded-flags))))
+       ("Remove flag to embed in --[gui-]exe executable" "flag")]
+      [("--exf-clear") 
+       ,(lambda (f) (exe-embedded-flags null))
+       ("Clear flags to embed in --[gui-]exe executable")]
+      [("--exf-show") 
+       ,(lambda (f) 
+	  (printf "Flags to embed: ~s~n" (exe-embedded-flags)))
+       ("Show flag to embed in --[gui-]exe executable")]]
      [once-any
       [("-a" "--mrspidey")
        ,(lambda (f) 
@@ -239,9 +257,9 @@
       [("-n" "--name") 
        ,(lambda (f name) (compiler:option:setup-prefix name))
        ("Use <name> as extra part of public low-level names" "name")]
-      [("--dirty")
+      [("--save-temps")
        ,(lambda (f) (compiler:option:clean-intermediate-files #f))
-       ("Don't remove intermediate files")]
+       ("Keep intermediate files")]
       [("--debug")
        ,(lambda (f) (compiler:option:debug #t))
        ("Write debugging output to dump.txt")]])
@@ -322,7 +340,7 @@
   [(exe gui-exe)
    (require-library "embed.ss" "compiler")
    (make-embedding-executable (exe-output) (eq? mode 'gui-exe) 
-			      source-files '("-mvq-"))
+			      source-files (exe-embedded-flags))
    (printf " [output to \"~a\"]~n" (exe-output))]
   [else (printf "bad mode: ~a~n" mode)])
 
