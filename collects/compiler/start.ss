@@ -16,8 +16,8 @@
 
 ; (require-library "traceld.ss")
 
-; On error, exit with -1 status code
-(error-escape-handler (lambda () (exit -1)))
+; On error, exit with 1 status code
+(error-escape-handler (lambda () (exit 1)))
 
 (error-print-width 512)
 
