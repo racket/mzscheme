@@ -25,3 +25,6 @@ in C:
  * helloprint.c - prints "Hello, World!" directly to the current
    output port rather than relying on the read-eval-print-loop.
    Demonstrates using built-in Scheme parameter values from C.
+
+ * tree.cxx - shows how to inject a C++ class into MzScheme's class
+   world.

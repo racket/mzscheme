@@ -17,7 +17,7 @@
     (send o get-leaves) ; => 10
     (send o get-left) ; => #f
 
-    (send o grow 2)
+    (send o grow 2) ; grows new branches on the frontier
     (send o get-left) ; => #<object:tree%>
     (send (send o get-left) get-leaves) ; => 2
 
@@ -40,7 +40,7 @@
     (define o (make-object tree% 10))
     (define a (make-object apple-tree%))
     (send o graft a #f)
-    (send o grow 1)   ; C++ call's apple-tree%'s `grow' for `a'
+    (send o grow 1)   ; C++ calls apple-tree%'s `grow' for `a'
     (send a get-left) ; -> #<object:apple-tree>
 */
 
