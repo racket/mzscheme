@@ -43,8 +43,10 @@
 
   (define module-mode (make-parameter #f))
 
+  (define default-plt-name "archive")
+
   (define plt-output (make-parameter #f))
-  (define plt-name (make-parameter "archive"))
+  (define plt-name (make-parameter default-plt-name))
   (define plt-files-replace (make-parameter #f))
   (define plt-setup-collections (make-parameter null))
 
@@ -106,6 +108,10 @@
 	 ,(lambda (f name) (exe-output name) 'gui-exe)
 	 (,(format "Embed module in MrEd to create <exe>")
 	  "exe")]
+	[("--collection-plt")
+	 ,(lambda (f name) (plt-output name) 'plt-collect)
+	 (,(format "Create .plt <archive> containing specified collections")
+	  "archive")]
 	[("--plt")
 	 ,(lambda (f name) (plt-output name) 'plt)
 	 (,(format "Create .plt <archive> with files/dirs relative to PLTHOME")
@@ -409,13 +415,47 @@
 	    (cons "-Z" flags)
 	    flags)))
      (printf " [output to \"~a\"]~n" (exe-output))]
-    [(plt)
-     (pack (plt-output) (plt-name)
-	   source-files
-	   (map list (plt-setup-collections))
-	   std-filter #t 
-	   (if (plt-files-replace)
-	       'file-replace
-	       'file))
-       (printf " [output to \"~a\"]~n" (plt-output))]
+    [(plt plt-collect)
+     (let-values ([(dir source-files)
+		   (if (eq? mode 'plt)
+		       (values (current-directory) source-files)
+		       (let ([dirs (map collection-path source-files)])
+			 ;; Figure out the base path:
+			 (let* ([base-path #f]
+				[base-path-setter #f]
+				[rel-paths (map (lambda (dir)
+						  (let-values ([(base c-name dir?) (split-path dir)])
+						    (let-values ([(base collects-dir-name dir?) (split-path base)])
+						      (if base-path
+							  (unless (equal? base base-path)
+							    (error
+							     'mzc
+							     "cannot combine collections that live in different diretories: \"~a\" and: \"~a\""
+							     base-path-setter
+							     dir))
+							  (begin
+							    (set! base-path-setter dir)
+							    (set! base-path base)))
+						      (build-path 'same collects-dir-name c-name))))
+						dirs)])
+			   (begin0
+			    (values base-path rel-paths)
+			    (when (eq? default-plt-name (plt-name))
+			      (plt-name
+			       ((or ((dynamic-require '(lib "getinfo.ss" "setup") 'get-info)
+				     (list (car source-files)))
+				    (lambda (n f) (car source-files)))
+				'name
+				(lambda () (car source-files)))))
+			    (plt-setup-collections (append source-files (plt-setup-collections)))))))])
+       (let ([output (path->complete-path (plt-output))])
+	 (parameterize ([current-directory dir])
+	   (pack output (plt-name)
+		 source-files
+		 (map list (plt-setup-collections))
+		 std-filter #t 
+		 (if (plt-files-replace)
+		     'file-replace
+		     'file))
+	   (printf " [output to \"~a\"]~n" (plt-output)))))]
     [else (printf "bad mode: ~a~n" mode)]))
