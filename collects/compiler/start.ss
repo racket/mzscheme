@@ -350,7 +350,7 @@
 		   (void)))))))
      (list "file/directory/collection" "file/directory/sub-collection")))
 
-  (printf "MzScheme compiler (mzc) version ~a, Copyright (c) 1996-2003 PLT~n"
+  (printf "MzScheme compiler (mzc) version ~a, Copyright (c) 2004 PLT Scheme, Inc.~n"
 	  (version))
 
   (define-values (mode source-files prefix)
