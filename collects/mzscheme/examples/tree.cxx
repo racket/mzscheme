@@ -48,9 +48,9 @@
 /* The original C++ class: Tree                           */
 /**********************************************************/
 
-/* This kind tree never grows or loses leaves. It only changes when it
-   grows subtrees, or when subtrees are grafted onto it. We'll derive
-   new classes (in Scheme) for trees that can grow leaves and
+/* This kind of tree never grows or loses leaves. It only changes when
+   it grows subtrees, or when subtrees are grafted onto it. We could
+   derive new classes (in Scheme) for trees that can grow leaves and
    fruit. */
 
 class Tree {
@@ -65,7 +65,8 @@ public:
   int leaves;
 
   void *user_data; /* The original class might not be this friendly,
-		      but for simplicity we assume that it is. */
+		      but for simplicity we assume that it is. 
+		      The alternative is to use a hash table. */
 
   Tree(int init_leaves) {
     left_branch = right_branch = NULL;
@@ -80,7 +81,7 @@ public:
     else
       left_branch = new Tree(n);
     if (right_branch)
-      left_branch->Grow(n);
+      right_branch->Grow(n);
     else
       right_branch = new Tree(n);
   }
@@ -97,9 +98,9 @@ public:
   }
 
   /* Note that Graft is not overrideable in C++.
-     In Scheme, we might override this methods, but
+     In Scheme, we might override this method, but
      the C++ code never has to know since it never
-     calls the Graft methods itself. */
+     calls the Graft method itself. */
 
   /* Reference counting utils: */
 
@@ -126,7 +127,7 @@ static Scheme_Object *tree_class;
 static Scheme_Object *grow_method;
 
 /* We keep a pointer to the Scheme object, and override the
-   methods to (potentially) dispatch to Scheme. */
+   Grow method to (potentially) dispatch to Scheme. */
 
 class mzTree : public Tree {
 public:
@@ -134,10 +135,11 @@ public:
 
   virtual void Grow(int n) {
     /* Check whether the Scheme class for user_data is 
-       actually a derived class that overrode `grow': */
-    Scheme_Object *overriding;
+       actually a derived class that overrides `grow': */
     Scheme_Object *scmobj;
+    Scheme_Object *overriding;
 
+    /* Pointer to Scheme instance kept in user_data: */
     scmobj = (Scheme_Object *)user_data;
 
     /* Cache a generic to find the method quickly: */
@@ -147,10 +149,11 @@ public:
 					    scheme_intern_symbol("grow"));
     }
     
+    /* Look for an overriding `grow' method in scmobj: */
     overriding = scheme_apply_generic_data(grow_method,
 					   scmobj,
 					   0); /* 0 means return NULL
-						  if not overridden. */
+						  if not overridden */
 
     if (overriding) {
       /* Call Scheme-based overriding implementation: */
@@ -159,7 +162,7 @@ public:
       argv[0] = scheme_make_integer(n);
       _scheme_apply(overriding, 1, argv);
     } else {
-      /* Grow is not overridden: */
+      /* Grow is not overridden in Scheme: */
       Tree::Grow(n);
     }
   }
@@ -169,12 +172,13 @@ public:
 /* The glue functions (Scheme calls to C++)               */
 /**********************************************************/
 
-/* Used for finalizing: */
-void FreeTree(void *scmobj, void *_t)
-{
-  Tree *t = (Tree *)_t;
+/* Macro for accessing C++ object pointer from a Scheme object: */
+#define SCHEME_CPP_OBJ(obj) (((Scheme_Class_Object *)(obj))->primdata)
 
-  Tree::Drop(t);
+/* Used for finalizing: */
+void FreeTree(void *scmobj, void *t)
+{
+  Tree::Drop((Tree *)t);
 }
 
 Scheme_Object *Make_Tree(Scheme_Object *obj, int argc, Scheme_Object **argv)
@@ -192,8 +196,8 @@ Scheme_Object *Make_Tree(Scheme_Object *obj, int argc, Scheme_Object **argv)
   Tree *t = new mzTree(SCHEME_INT_VAL(argv[0]));
   t->user_data = obj;
 
-  /* Store C++ pointer in Schemeobject: */
-  ((Scheme_Class_Object *)obj)->primdata = t;
+  /* Store C++ pointer in Scheme object: */
+  SCHEME_CPP_OBJ(obj) = t;
 
   /* Free C++ instance when the Scheme object is no longer referenced: */
   scheme_add_finalizer(obj, FreeTree, t);
@@ -213,7 +217,7 @@ Scheme_Object *Grow(Scheme_Object *obj, int argc, Scheme_Object **argv)
   n = SCHEME_INT_VAL(argv[0]);
 
   /* Extract the C++ pointer: */
-  t = (Tree *)((Scheme_Class_Object *)obj)->primdata;
+  t = (Tree *)SCHEME_CPP_OBJ(obj);
   
   /* Call method (without override check): */
   t->Tree::Grow(n);
@@ -235,15 +239,15 @@ Scheme_Object *Graft(Scheme_Object *obj, int argc, Scheme_Object **argv)
 		      1, argc, argv);
 
   /* Extract the C++ pointer for `this': */
-  t = (Tree *)((Scheme_Class_Object *)obj)->primdata;
+  t = (Tree *)SCHEME_CPP_OBJ(obj);
 
   /* Extract the C++ pointers for the args: */
   l = (SCHEME_FALSEP(argv[0])
        ? (Tree *)NULL
-       : (Tree *)((Scheme_Class_Object *)argv[0])->primdata);
+       : (Tree *)SCHEME_CPP_OBJ(argv[0]));
   r = (SCHEME_FALSEP(argv[1])
        ? (Tree *)NULL
-       : (Tree *)((Scheme_Class_Object *)argv[1])->primdata);
+       : (Tree *)SCHEME_CPP_OBJ(argv[1]));
   
   /* Call method: */
   t->Graft(l, r);
@@ -265,7 +269,7 @@ Scheme_Object *MarshalTree(Tree *t)
 
     /* Link C++ and Scheme objects: */
     t->user_data = scmobj;
-    ((Scheme_Class_Object *)scmobj)->primdata = t;
+    SCHEME_CPP_OBJ(scmobj) = t;
     
     return scmobj;
   } else
@@ -275,21 +279,21 @@ Scheme_Object *MarshalTree(Tree *t)
 
 Scheme_Object *Get_Left(Scheme_Object *obj, int argc, Scheme_Object **argv)
 {
-  Tree *t = (Tree *)((Scheme_Class_Object *)obj)->primdata;
+  Tree *t = (Tree *)SCHEME_CPP_OBJ(obj);
   
   return MarshalTree(t->left_branch);
 }
 
 Scheme_Object *Get_Right(Scheme_Object *obj, int argc, Scheme_Object **argv)
-{
-  Tree *t = (Tree *)((Scheme_Class_Object *)obj)->primdata;
+{ 
+  Tree *t = (Tree *)SCHEME_CPP_OBJ(obj);
  
   return MarshalTree(t->right_branch);
 }
 
 Scheme_Object *Get_Leaves(Scheme_Object *obj, int argc, Scheme_Object **argv)
 {
-  Tree *t = (Tree *)((Scheme_Class_Object *)obj)->primdata;
+  Tree *t = (Tree *)SCHEME_CPP_OBJ(obj);
  
   return scheme_make_integer(t->leaves);
 }
