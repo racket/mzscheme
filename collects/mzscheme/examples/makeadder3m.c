@@ -2,6 +2,8 @@
    The same as makeaddr.c, but revised and annotated so that it works
    with 3m. All non-3m comments have been deleted (to better highlight
    the 3m parts).
+
+   Using the --3m flag when compiling and linking with mzc.
 */
 
 #include "escheme.h"
@@ -32,7 +34,7 @@ static Scheme_Object *sch_inner(void *closure_data, int argc, Scheme_Object **ar
      move. As written, plus_sym's value is not set up for the
      call until after scheme_get_env() returns. */
   plus_sym = scheme_intern_symbol("+");
-  env = scheme_get_env(scheme_config);
+  env = scheme_get_env(NULL);
   plus = scheme_lookup_global(plus_sym, env);
 
   a[0] = n;

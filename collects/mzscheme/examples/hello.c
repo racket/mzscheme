@@ -14,7 +14,7 @@
 Scheme_Object *scheme_reload(Scheme_Env *env)
 {
   /* When the extension is loaded, return a Scheme string: */
-  return scheme_make_string("Hello, world!");
+  return scheme_make_utf8_string("Hello, world!");
 }
 
 Scheme_Object *scheme_initialize(Scheme_Env *env)

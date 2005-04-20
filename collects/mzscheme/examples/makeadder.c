@@ -21,7 +21,7 @@ static Scheme_Object *sch_inner(void *closure_data, int argc, Scheme_Object **ar
   Scheme_Object *a[2];
 
   plus = scheme_lookup_global(scheme_intern_symbol("+"), 
-			      scheme_get_env(scheme_config));
+			      scheme_get_env(NULL));
 
   /* return the result of summing m and n: */
   a[0] = n;

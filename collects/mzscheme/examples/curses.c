@@ -24,10 +24,14 @@ static Scheme_Object *sch_put(int argc, Scheme_Object **argv)
   /* Puts a char or string on the screen */
   if (SCHEME_CHARP(argv[0]))
     addch(SCHEME_CHAR_VAL(argv[0]));
-  else if (SCHEME_STRINGP(argv[0]))
-    addstr(SCHEME_STR_VAL(argv[0]));
-  else
-    scheme_wrong_type("put", "character or string", 0, argc, argv);
+  else if (SCHEME_BYTE_STRINGP(argv[0]))
+    addstr(SCHEME_BYTE_STR_VAL(argv[0]));
+  else if (SCHEME_CHAR_STRINGP(argv[0])) {
+    Scheme_Object *bs;
+    bs = scheme_char_string_to_byte_string(argv[0]);
+    addstr(SCHEME_BYTE_STR_VAL(bs));
+  } else
+    scheme_wrong_type("put", "character, string, or byte string", 0, argc, argv);
 
   return scheme_void;
 }

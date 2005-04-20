@@ -82,7 +82,7 @@ Scheme_Object *extract_exn_message(Scheme_Object *v)
 
 static Scheme_Object *do_eval(void *s, int noargc, Scheme_Object **noargv)
 {
-  return scheme_eval_string((char *)s, scheme_get_env(scheme_config));
+  return scheme_eval_string((char *)s, scheme_get_env(NULL));
 }
 
 static Scheme_Object *eval_string_or_get_exn_message(char *s)
@@ -105,10 +105,14 @@ static Scheme_Object *eval_string_or_get_exn_message(char *s)
 
 static Scheme_Object *catch_eval_error(int argc, Scheme_Object **argv)
 {
-  if (!SCHEME_STRINGP(argv[0]))
+  Scheme_Object *bs;
+
+  if (!SCHEME_CHAR_STRINGP(argv[0]))
     scheme_wrong_type("eval-string/catch-error", "string", 0, argc, argv);
 
-  return eval_string_or_get_exn_message(SCHEME_STR_VAL(argv[0]));
+  bs = scheme_char_string_to_byte_string(argv[0]);
+  
+  return eval_string_or_get_exn_message(SCHEME_BYTE_STR_VAL(bs));
 }
 
 /*********************************************************************/

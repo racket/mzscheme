@@ -6,10 +6,11 @@
 Scheme_Object *scheme_reload(Scheme_Env *env)
 {
   /* Make the string: */
-  Scheme_Object *hw = scheme_make_string("Hello, World!\n");
+  Scheme_Object *hw = scheme_make_utf8_string("Hello, World!\n");
 
   /* Display it: */
-  scheme_display(hw, scheme_get_param(scheme_config, MZCONFIG_OUTPUT_PORT));
+  scheme_display(hw, scheme_get_param(scheme_current_config(), 
+				      MZCONFIG_OUTPUT_PORT));
 
   /* Why not just
         printf("Hello, World!\n");

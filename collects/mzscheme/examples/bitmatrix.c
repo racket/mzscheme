@@ -83,7 +83,7 @@ Scheme_Object *make_bit_matrix(int argc, Scheme_Object **argv)
        describes the type of the exception. After an exception-specific
        number of Scheme values (none in this case), the rest of the
        arguments are like printf. */
-    scheme_raise_exn(MZEXN_MISC_OUT_OF_MEMORY, "make-bit-matrix: out of memory");
+    scheme_raise_exn(MZEXN_FAIL, "make-bit-matrix: out of memory");
   
   s = SCHEME_INT_VAL(size);
   w = SCHEME_INT_VAL(argv[0]);
@@ -102,7 +102,7 @@ Scheme_Object *make_bit_matrix(int argc, Scheme_Object **argv)
   bm->matrix = (unsigned long *)scheme_malloc_fail_ok(scheme_malloc_atomic, 
 						      sizeof(long) * s);
   if (!bm->matrix)
-    scheme_raise_exn(MZEXN_MISC_OUT_OF_MEMORY, "make-bit-matrix: out of memory");
+    scheme_raise_exn(MZEXN_FAIL, "make-bit-matrix: out of memory");
 
   bm->w = w;
   bm->h = h;
@@ -137,8 +137,7 @@ static void range_check_one(char *name, char *which,
     long argslen;
 
     args = scheme_make_args_string("other ", startpos, argc, argv, &argslen);
-    scheme_raise_exn(MZEXN_APPLICATION_MISMATCH,
-		     argv[startpos],
+    scheme_raise_exn(MZEXN_FAIL_CONTRACT,
 		     "%s: %s index %s is not in the range [%d,%d]%t",
 		     name, which,
 		     scheme_make_provided_string(argv[startpos], 1, NULL),
