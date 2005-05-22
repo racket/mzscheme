@@ -97,6 +97,9 @@
 	[("-z" "--zo")
 	 ,(lambda (f) 'zo)
 	 (,(format "Output ~a file(s) from Scheme source(s)" (extract-suffix append-zo-suffix)))]
+	[("-k" "--make")
+	 ,(lambda (f) 'make-zo)
+	 ("Like --zo, but uses .dep, recurs for imports, implies --auto-dir")]
 	[("--collection-extension")
 	 ,(lambda (f) 'collection-extension)
 	 ("Compile specified collection to extension")]
@@ -157,7 +160,8 @@
 	 ,(lambda (f)
 	    (auto-dest-dir #t))
 	 (,(format "Output -z to \"compiled\", -e to ~s"
-		   (build-path "compiled" "native" (system-library-subpath))))]]
+		   (path->string
+		    (build-path "compiled" "native" (system-library-subpath)))))]]
 
        [help-labels
 	"------------------- compiler/linker configuration flags ---------------------"]
@@ -394,6 +398,32 @@
      ((compile-zos prefix) source-files (if (auto-dest-dir)
 					    'auto
 					    (dest-dir)))]
+    [(make-zo)
+     (let ([n (make-namespace)]
+	   [mc (dynamic-require '(lib "cm.ss")
+				'managed-compile-zo)]
+	   [cnh (dynamic-require '(lib "cm.ss")
+				 'manager-compile-notify-handler)]
+	   [did-one? #f])
+       (parameterize ([current-namespace n]
+		      [cnh (lambda (p)
+			     (set! did-one? #t)
+			     (printf "  making ~s~n" (path->string p)))])
+	   (map (lambda (file)
+		  (set! did-one? #f)
+		  (let ([name (extract-base-filename/ss file 'mzc)])
+		    (printf "\"~a\":~n" file)
+		    (mc file)
+		    (let ([dest (append-zo-suffix 
+				 (let-values ([(base name dir?) (split-path name)])
+				   (build-path (if (symbol? base) 'same base)
+					       "compiled" name)))])
+		      (printf " [~a \"~a\"]~n"
+			      (if did-one?
+				  "output to"
+				  "already up-to-date at")
+			      dest))))
+		source-files)))]
     [(collection-extension)
      (apply compile-collection-extension source-files)]
     [(collection-zos)
