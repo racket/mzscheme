@@ -14,14 +14,14 @@
 ;; See doc.txt for information about the Scheme-level interface
 ;;  provided by this collection.
 
-(module start mzscheme
+(module main scheme/base
 
   ;; On error, exit with 1 status code
   (error-escape-handler (lambda () (exit 1)))
 
   (error-print-width 512)
 
-  (require (prefix compiler:option: "option.ss"))
+  (require (prefix-in compiler:option: "option.ss"))
   (require "compiler.ss")
 
   ;; Read argv array for arguments and input file name
@@ -40,7 +40,7 @@
   (define ld-output (make-parameter #f))
 
   (define exe-output (make-parameter #f))
-  (define exe-embedded-flags (make-parameter '("-m" "-v" "-U" "-q" "--")))
+  (define exe-embedded-flags (make-parameter '("-U" "--")))
   (define exe-embedded-libraries (make-parameter null))
   (define exe-aux (make-parameter null))
   (define exe-embedded-collects-path (make-parameter #f))
@@ -80,6 +80,9 @@
      `([help-labels
 	"-------------------------------- mode flags ---------------------------------"]
        [once-any
+	[("-k" "--make")
+	 ,(lambda (f) 'make-zo)
+	 ("Recursively compile Scheme source(s); uses/generates .dep files")]
 	[("-e" "--extension")
 	 ,(lambda (f) 'compile)
 	 (,(format "Output ~a file(s) from Scheme source(s) (default)" (extract-suffix append-extension-suffix)))]
@@ -104,9 +107,6 @@
 	[("-z" "--zo")
 	 ,(lambda (f) 'zo)
 	 (,(format "Output ~a file(s) from Scheme source(s)" (extract-suffix append-zo-suffix)))]
-	[("-k" "--make")
-	 ,(lambda (f) 'make-zo)
-	 ("Like --zo, but uses .dep, recurs for imports, implies --auto-dir")]
 	[("--collection-extension")
 	 ,(lambda (f) 'collection-extension)
 	 ("Compile specified collection to extension")]
@@ -304,10 +304,10 @@
 	 ("Use original executable for --[gui-]exe instead of stub")]]
        [multi
 	[("++lib")
-	 ,(lambda (f l c) (exe-embedded-libraries
-			   (append (exe-embedded-libraries)
-				   (list (list l c)))))
-	 ("Embed <lib> from <collect> in --[gui-]exe executable" "lib" "collect")]
+	 ,(lambda (f l) (exe-embedded-libraries
+                         (append (exe-embedded-libraries)
+                                 (list l))))
+	 ("Embed <lib> from <collect> in --[gui-]exe executable" "lib")]
 	[("++collects-copy")
 	 ,(lambda (f d) (exe-dir-add-collects-dirs
 			 (append (exe-dir-add-collects-dirs)
@@ -407,7 +407,7 @@
      (lambda (accum file . files)
        (let ([mode (let ([l (filter symbol? accum)])
 		     (if (null? l)
-			 'compile
+			 'make-zo
 			 (car l)))])
 	 (values 
 	  mode
@@ -453,9 +453,16 @@
       (begin
         (link-variant 'cgc)
         (compile-variant 'cgc)))
-  
+
+  (define (compiler-warning)
+    (fprintf (current-error-port) 
+             (string-append
+              "Warning: compilation to C is usually less effective\n"
+              "for performance than relying on the bytecode JIT compiler.\n")))
+
   (case mode
     [(compile)
+     (compiler-warning)
      (never-embedded "compile")
      ((compile-extensions prefix) source-files (if (auto-dest-dir)
 						   'auto
@@ -477,9 +484,9 @@
 					    (dest-dir)))]
     [(make-zo)
      (let ([n (make-namespace)]
-	   [mc (dynamic-require '(lib "cm.ss")
+	   [mc (dynamic-require '(lib "mzlib/cm.ss")
 				'managed-compile-zo)]
-	   [cnh (dynamic-require '(lib "cm.ss")
+	   [cnh (dynamic-require '(lib "mzlib/cm.ss")
 				 'manager-compile-notify-handler)]
 	   [did-one? #f])
        (parameterize ([current-namespace n]
@@ -504,6 +511,7 @@
 			      dest))))
 		source-files)))]
     [(collection-extension)
+     (compiler-warning)
      (apply compile-collection-extension source-files)]
     [(collection-zos)
      (apply compile-collection-zos source-files)]
@@ -561,17 +569,14 @@
 	#:modules (cons
 		   `(#%mzc: (file ,(car source-files)))
 		   (map (lambda (l)
-			  `(#t (lib ,@l)))
+			  `(#t (lib ,l)))
 			(exe-embedded-libraries)))
-	#:literal-expression `(require ,(string->symbol
-					 (format
-					  "#%mzc:~a"
-					  (let-values ([(base name dir?) (split-path (car source-files))])
-					    (path->bytes (path-replace-suffix name #""))))))
-	#:cmdline (let ([flags (exe-embedded-flags)])
-		    (if (eq? mode 'gui-exe) 
-			(cons "-Z" flags)
-			flags))
+	#:literal-expression `(#%require ',(string->symbol
+                                            (format
+                                             "#%mzc:~a"
+                                             (let-values ([(base name dir?) (split-path (car source-files))])
+                                               (path->bytes (path-replace-suffix name #""))))))
+	#:cmdline (exe-embedded-flags)
 	#:collects-path (exe-embedded-collects-path)
 	#:collects-dest (exe-embedded-collects-dest)
 	#:aux (exe-aux))
