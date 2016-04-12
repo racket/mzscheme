@@ -2,7 +2,7 @@
 
 (define collection 'multi)
 (define deps '("scheme-lib"
-               "base"))
+               ["base" #:version "6.5.0.2"]))
 
 (define pkg-desc "implementation (no documentation) part of \"mzscheme\"")
 
