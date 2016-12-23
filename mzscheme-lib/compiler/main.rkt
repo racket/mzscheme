@@ -213,7 +213,7 @@
        ("Windows icon for --[gui-]exe executable" ".ico-file")]
       [("--icns")
        ,(lambda (f i) (exe-aux (cons (cons 'icns i) (exe-aux))))
-       ("Mac OS X icon for --[gui-]exe executable" ".icns-file")]
+       ("Mac OS icon for --[gui-]exe executable" ".icns-file")]
       [("--orig-exe")
        ,(lambda (f) (exe-aux (cons (cons 'original-exe? #t) (exe-aux))))
        ("Use original executable for --[gui-]exe instead of stub")]]
