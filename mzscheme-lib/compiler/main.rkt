@@ -523,7 +523,9 @@
      (mzc:create-embedding-executable
       dest
       #:mred? (eq? mode 'gui-exe)
-      #:variant (if (compiler:option:3m) '3m 'cgc)
+      #:variant (if (eq? 'racket (system-type 'vm))
+                    (if (compiler:option:3m) '3m 'cgc)
+                    (system-type 'gc))
       #:verbose? (compiler:option:verbose)
       #:modules (cons `(#%mzc: (file ,(car source-files)))
                       (map (lambda (l) `(#t (lib ,l)))
