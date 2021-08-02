@@ -1,6 +1,7 @@
 #lang scribble/doc
 @(require scribble/manual
-          (for-label mzscheme
+          (for-label (except-in mzscheme
+                                exn:fail exn:fail:contract)
                      (only-in r5rs set-car! set-cdr!)
                      (only-in scheme/base
                               for-syntax #%plain-module-begin
