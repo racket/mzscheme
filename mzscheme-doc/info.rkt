@@ -13,3 +13,6 @@
                      "racket-doc"
                      "scheme-lib"
                      "scribble-lib"))
+
+(define license
+  '(Apache-2.0 OR MIT))
