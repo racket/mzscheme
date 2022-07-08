@@ -12,6 +12,7 @@
                      "r5rs-lib"
                      "racket-doc"
                      "scheme-lib"
+                     "scheme-doc"
                      "scribble-lib"))
 
 (define license
