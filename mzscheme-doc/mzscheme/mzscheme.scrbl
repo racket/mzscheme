@@ -27,7 +27,8 @@
                                base-open-input-file base-apply base-prop:procedure
                                base-free-identifier=? base-free-template-identifier=?
                                base-free-transformer-identifier=? base-free-label-identifier=?
-                               base-collection-file-path base-collection-path)
+                               base-collection-file-path base-collection-path
+                               base-thread)
    (begin
      (require (for-label scheme/base))
      (define base-define (racket define))
@@ -46,13 +47,15 @@
      (define base-free-transformer-identifier=? (racket free-transformer-identifier=?))
      (define base-free-label-identifier=? (racket free-label-identifier=?))
      (define base-collection-file-path (racket collection-file-path))
-     (define base-collection-path (racket collection-path))))
+     (define base-collection-path (racket collection-path))
+     (define base-thread (racket thread))))
 @(def-base base-define base-define-syntax base-define-for-syntax base-define-struct
            base-if base-cond base-case base-top-interaction
            base-open-input-file base-apply base-prop:procedure
            base-free-identifier=? base-free-template-identifier=?
            base-free-transformer-identifier=? base-free-label-identifier=?
-           base-collection-file-path base-collection-path)
+           base-collection-file-path base-collection-path
+           base-thread)
 
 @(define-syntax-rule (additionals racket/base id ...)
    (begin
@@ -447,6 +450,15 @@ The same as @racket[list].}
 
 Like @base-collection-file-path and @base-collection-path, but without
 the @racket[#:fail] option.}
+
+@defproc[(thread [proc procedure?] [keep (or/c #f 'results) #f]) thread?]{
+
+Like @base-thread, but does not accept a @racket[#:pool] argument, and
+accepts @racket[#:keep] as by-position instead of as a keyword
+argument.
+
+@history[#:changed "1.1" @elem{Made binding distinct from @base-thread and
+                               added the @racket[keep] argument.}]}
 
 @; ----------------------------------------
 
